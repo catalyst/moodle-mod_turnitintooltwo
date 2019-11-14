@@ -82,7 +82,7 @@ class turnitintooltwo_user {
      * @return object A properly built Moodle User Data object with rebuilt email address
      */
     public function get_moodle_user($userid) {
-        global $DB;
+        global $DB, $CFG;
 
         $user = $DB->get_record('user', array('id' => $userid));
 
@@ -91,6 +91,20 @@ class turnitintooltwo_user {
             $split = explode('.', $user->username);
             array_pop($split);
             $user->email = join('.', $split);
+        }
+
+        /*
+         * BASE-909: plagiarism_turnitin: add option to modify user email address
+         *
+         * Add the database name to the email address.
+         * IMPORTANT NOTE: this is to support an existing change to the way UNE
+         * integrates with Turnitin.
+         *
+         * Turning on this option for any other client MUST be carefully considered,
+         * as a users email address is used as a unique idetnifier in the Turnitin system.
+         */
+        if (!empty($CFG->turnitin_modifyuseremailaddress)) {
+            $user->email = str_replace('@', '_' . $CFG->dbname  . '@', $user->email);
         }
 
         $this->firstname = stripslashes(str_replace('/', '', $user->firstname));
@@ -150,14 +164,16 @@ class turnitintooltwo_user {
         $config = turnitintooltwo_admin_config();
         $userinfo = $DB->get_record('user_info_data', array('userid' => $this->id, 'fieldid' => $config->pseudolastname));
 
+        //BASE-1509: Fix update_record_raw errors
         if ((!isset($userinfo->data) || empty($userinfo->data)) && $config->pseudolastname != 0 && $config->lastnamegen == 1) {
             $uniqueid = strtoupper(strrev(uniqid()));
+            $userinfo_id = isset($userinfo->id) ? $userinfo->id : '';
             $userinfo = new stdClass();
             $userinfo->userid = $this->id;
             $userinfo->fieldid = $config->pseudolastname;
             $userinfo->data = $uniqueid;
-            if (isset($userinfo->data)) {
-                $userinfo->id = $userinfo->id;
+            if (!empty($userinfo_id)) {
+                $userinfo->id = $userinfo_id;
                 $DB->update_record('user_info_data', $userinfo);
             } else {
                 $DB->insert_record('user_info_data', $userinfo);
@@ -213,7 +229,8 @@ class turnitintooltwo_user {
         $turnitincomms = new turnitintooltwo_comms();
         $turnitincall = $turnitincomms->initialise_api();
 
-        if (!empty($config->enablepseudo) && $this->role == "Learner") {
+        // BASE-1441: ANU privacy and security enhancements
+        if (!empty($config->enablepseudo) && (!empty($config->forcepseudo) || $this->role == "Learner")) {
             $user = new TiiPseudoUser($this->get_pseudo_domain());
             $user->setPseudoSalt($config->pseudosalt);
         } else {
@@ -252,7 +269,8 @@ class turnitintooltwo_user {
 
         // Convert the email, firstname and lastname to pseudos for students if the option is set in config
         // Unless the user is already logged as a tutor then use real details.
-        if (!empty($config->enablepseudo) && $this->role == "Learner") {
+        // BASE-1441: ANU privacy and security enhancements
+        if (!empty($config->enablepseudo) && (!empty($config->forcepseudo) || $this->role == "Learner")) {
             $user = new TiiPseudoUser($this->get_pseudo_domain());
             $user->setPseudoSalt($config->pseudosalt);
             $user->setFirstName($this->get_pseudo_firstname());
@@ -437,8 +455,21 @@ class turnitintooltwo_user {
      * Set the number of user messages and any instructor rubrics from Turnitin
      */
     public function set_user_values_from_tii() {
+        global $DB;
+
         $turnitincomms = new turnitintooltwo_comms();
         $turnitincall = $turnitincomms->initialise_api();
+
+        // BASE-401: mod_turnitintooltwo: Turnitin Direct V2
+        // Exclude users that have been refereshed recently
+        $config = turnitintooltwo_admin_config();
+        $sql = 'SELECT id FROM {turnitintooltwo_users} WHERE dtusync < :expires AND turnitin_uid = :tiiuserid ';
+        $params = array();
+        $params['expires'] = time() - $config->usercachettl;
+        $params['tiiuserid'] = $this->tiiuserid;
+        if (!$DB->record_exists_sql($sql, $params)) {
+            return false;
+        }
 
         $user = new TiiUser();
         $user->setUserId($this->tiiuserid);
@@ -555,11 +586,12 @@ class turnitintooltwo_user {
         global $DB;
 
         // Array of settings that we want to save.
+        // BASE-1935: mod_turnitintooltwo: Fix assignment defaults for submission file type and auto refresh grades
         $settingstosave = array("type", "numparts", "portfolio", "maxfilesize", "grade", "anon", "studentreports", "gradedisplay",
                                 "maxmarks1", "maxmarks2", "maxmarks3", "maxmarks4", "maxmarks5", "allowlate", "reportgenspeed",
                                 "submitpapersto", "spapercheck", "internetcheck", "journalcheck", "excludebiblio",
                                 "excludequoted", "excludevalue", "excludetype", "erater", "erater_handbook",
-                                "erater_dictionary", "transmatch");
+                                "erater_dictionary", "transmatch", "autoupdates", "allownonor");
 
         $instructordefaults = new stdClass();
         foreach ($settingstosave as $setting) {
@@ -594,9 +626,11 @@ class turnitintooltwo_user {
     /**
      * Get whether the student has accepted the Turnitin User agreement
      *
+     * BASE-890: fix various issues related to plugin upgrade
+     *
      * @return boolean
      */
-    public function get_accepted_user_agreement() {
+    public function get_accepted_user_agreement($attempt = 0) {
         global $DB;
 
         $turnitincomms = new turnitintooltwo_comms();
@@ -626,9 +660,13 @@ class turnitintooltwo_user {
             if (defined('PHPUNIT_TEST') && PHPUNIT_TEST) {
                 return true;
             }
+            if ($attempt > 0) {
+                // Prevents infinite loop // BASE-890
+                return false;
+            }
 
             $this->set_user_values_from_tii();
-            $this->get_accepted_user_agreement();
+            $this->get_accepted_user_agreement(++$attempt);
         }
     }
 }

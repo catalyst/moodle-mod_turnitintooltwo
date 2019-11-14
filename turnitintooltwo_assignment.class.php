@@ -347,7 +347,8 @@ class turnitintooltwo_assignment {
         $turnitincall = $turnitincomms->initialise_api();
 
         $class = new TiiClass();
-        $tiititle = $this->truncate_title( $course->fullname, TURNITIN_COURSE_TITLE_LIMIT, $coursetype );
+        // BASE-2702: Use self as truncate_title is a static function
+        $tiititle = self::truncate_title( $course->fullname, TURNITIN_COURSE_TITLE_LIMIT, $coursetype );
         $class->setTitle( $tiititle );
 
         try {
@@ -620,7 +621,8 @@ class turnitintooltwo_assignment {
         $members = array_keys($students);
         foreach ($members as $member) {
             // Don't include user if they are suspended.
-            if (isset($suspendedusers[$user->id])) {
+            // BASE-2280: Adding tutors and enrolling student fixes
+            if (isset($suspendedusers[$member])) {
                 continue;
             }
             $user = new turnitintooltwo_user($member, "Learner");
@@ -848,6 +850,9 @@ class turnitintooltwo_assignment {
      */
     public function create_event($toolid, $partname, $duedate) {
         global $CFG;
+
+        //BASE-2581: Add calendar events to the myoverview block
+        require_once($CFG->dirroot . '/calendar/lib.php');
 
         $properties = new stdClass();
         $properties->name = $this->turnitintooltwo->name . ' - ' . $partname;
@@ -1085,6 +1090,25 @@ class turnitintooltwo_assignment {
 
         $part = $DB->get_record('turnitintooltwo_parts', $sqlarray, 'MIN(dtstart) AS dtstart');
         return $part->dtstart;
+    }
+
+    /**
+     * Get the due date for the specified part
+     *
+     * @global type $DB
+     * @param int $partid
+     * @return date the due date of the part
+     */
+    public function get_due_date($partid = 0) {
+        global $DB;
+
+        $sqlarray = array('turnitintooltwoid' => $this->id);
+        if ($partid != 0) {
+            $sqlarray["id"] = $partid;
+        }
+
+        $part = $DB->get_record('turnitintooltwo_parts', $sqlarray, 'MIN(dtdue) AS dtdue');
+        return $part->dtdue;
     }
 
     /**
@@ -1594,6 +1618,19 @@ class turnitintooltwo_assignment {
         $turnitincomms = new turnitintooltwo_comms();
         $turnitincall = $turnitincomms->initialise_api();
 
+        // NetSpot: Exclude submissions that have been refereshed recently.
+        $config = turnitintooltwo_admin_config();
+        $params = array();
+        $params['expires'] = time() - $config->submissioncachettl;
+        $params['partid'] = $part->id;
+        $sql = 'select submission_objectid, submission_part from {turnitintooltwo_submissions} where dtrsync < :expires and submission_part = :partid';
+        $submissions = $DB->get_records_sql_menu($sql, $params);
+
+        // Nothing to update
+        if (empty($submissions)) {
+            return;
+        }
+
         // Only save data if the user is an instructor.
         $istutor = has_capability('mod/turnitintooltwo:grade', context_module::instance($cm->id));
         // Or if a submission belongs to the logged in user.
@@ -1631,6 +1668,29 @@ class turnitintooltwo_assignment {
         $turnitincomms = new turnitintooltwo_comms();
         $turnitincall = $turnitincomms->initialise_api();
 
+        // NetSpot: Check and load submission ids from db if updated recently.
+        global $DB;
+        $config = turnitintooltwo_admin_config();
+        $params = array();
+        $params['assignid'] = $part->tiiassignid;
+        $params['expires'] = time() - $config->submissioncachettl;
+        $sql = 'SELECT tiis.submission_objectid, tiip.id FROM {turnitintooltwo_parts} tiip
+                    LEFT JOIN {turnitintooltwo_submissions} tiis ON (tiis.submission_part=tiip.id)
+                    WHERE dtssync < :expires and tiip.tiiassignid = :assignid';
+        $submissions = $DB->get_records_sql($sql, $params);
+
+        // Nothing to update
+        if (!empty($submissions)) {
+            // Reset submissions and fill based on entries that need updating based on expiry date
+            $_SESSION["TiiSubmissions"] = array();
+            foreach ($submissions as $submission) {
+                if (!empty($submission->submission_objectid)) {
+                    $_SESSION["TiiSubmissions"][$submission->id][] = $submission->submission_objectid;
+                }
+            }
+            return;
+        }
+
         try {
             $submission = new TiiSubmission();
             $submission->setAssignmentId($part->tiiassignid);
@@ -1642,6 +1702,13 @@ class turnitintooltwo_assignment {
 
             $response = $turnitincall->findSubmissions($submission);
             $findsubmission = $response->getSubmission();
+
+            // NetSpot: Update assignment last submission id sync time (dtssync).
+            $parts = $DB->get_records('turnitintooltwo_parts', array('tiiassignid' => $part->tiiassignid));
+            foreach($parts as $part) {
+                $part->dtssync = time();
+                $DB->update_record('turnitintooltwo_parts', $part);
+            }
 
             $_SESSION["TiiSubmissions"][$part->id] = $findsubmission->getSubmissionIds();
 
@@ -1690,6 +1757,19 @@ class turnitintooltwo_assignment {
             $assignments = $assignmentids;
         }
 
+        // NetSpot: Exclude assignments that have been refereshed recently.
+        $config = turnitintooltwo_admin_config();
+        list($insql, $params) = $DB->get_in_or_equal($assignments, SQL_PARAMS_NAMED);
+        $sql = 'SELECT id, tiiassignid FROM {turnitintooltwo_parts} WHERE dtasync < :expires AND tiiassignid ' . $insql;
+        $params['expires'] = time() - $config->assigncachettl;
+        $assignments = $DB->get_records_sql_menu($sql, $params);
+        $assignments = array_values($assignments);
+
+        // Nothing to update
+        if (empty($assignments)) {
+            return;
+        }
+
         $assignment = new TiiAssignment();
 
         try {
@@ -1711,6 +1791,7 @@ class turnitintooltwo_assignment {
                 $part->dtpost = strtotime($readassignment->getFeedbackReleaseDate());
                 $part->maxmarks = $readassignment->getMaxGrade();
                 $part->tiiassignid = $readassignment->getAssignmentId();
+                $part->dtasync = time(); // NetSpot.
 
                 if ($assignmentids == 0) {
                     $part->id = $partids[$readassignment->getAssignmentId()];
@@ -1944,7 +2025,7 @@ class turnitintooltwo_assignment {
         }
 
         // Get the suspended users.
-        $suspendedusers = get_suspended_userids($context);
+        $suspendedusers = get_suspended_userids($context, true); // BASE-3249: use suspended user cache.
 
         // Populate the submissions array to show all users for all parts.
         $submissions = array();

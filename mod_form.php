@@ -114,7 +114,8 @@ class mod_turnitintooltwo_mod_form extends moodleform_mod {
                 $this->current->$k = $v;
             }
 
-            $this->current = $this->populate_submitpapersto($this->current);
+            // BASE-2856.
+            $this->current = $this->populate_submitpapersto($this->current, $this->updating);
         }
 
         $modulestring .= ') -->';
@@ -208,12 +209,8 @@ class mod_turnitintooltwo_mod_form extends moodleform_mod {
         $mform->addRule('name', get_string('maxlength', 'turnitintooltwo', $input), 'maxlength', $input->length, 'client');
         $mform->addRule('name', get_string('maxlength', 'turnitintooltwo', $input), 'maxlength', $input->length, 'server');
 
-        if ($CFG->branch >= 29) {
-            $this->standard_intro_elements(get_string('turnitintooltwointro', 'turnitintooltwo'));
-        } else {
-            $this->add_intro_editor(true, get_string('turnitintooltwointro', 'turnitintooltwo'));
-        }
 
+        $this->standard_intro_elements(get_string('turnitintooltwointro', 'turnitintooltwo'));
         $typeoptions = turnitintooltwo_filetype_array(true);
 
         $mform->addElement('select', 'type', get_string('type', 'turnitintooltwo'), $typeoptions);
@@ -520,7 +517,8 @@ class mod_turnitintooltwo_mod_form extends moodleform_mod {
 
         if ( isset($config->transmatch) && $config->transmatch == '1') {
             $mform->addElement('select', 'transmatch', get_string('transmatch', 'turnitintooltwo'), $ynoptions);
-            $mform->setDefault('transmatch', $config->default_transmatch);
+            // BASE-2511.
+            $mform->setDefault('transmatch', isset($config->default_transmatch) ? $config->default_transmatch : 0 );
         }
 
         // Populate Rubric options.
@@ -628,6 +626,26 @@ class mod_turnitintooltwo_mod_form extends moodleform_mod {
 
     }
 
+    public function definition_after_data() {
+        parent::definition_after_data();
+
+        $mform = $this->_form;
+        $elements =& $mform->getElement('grade')->getElements();
+
+        foreach ($elements as $element) {
+            if ($element->_type == 'select' && $element->_attributes['name'] == 'modgrade_type') {
+                if ($element->_values[0] != 'scale') {
+                    // Disable the scale option if it is not already in use.
+                    foreach ($element->_options as &$option) {
+                        if ($option['attr']['value'] == 'scale') {
+                            $option['attr']['disabled'] = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /**
      * Custom validation to validate part dates
      *
@@ -707,14 +725,16 @@ class mod_turnitintooltwo_mod_form extends moodleform_mod {
     /**
      * Returns the default value for submitpapersto
      * @param stdClass $current
+     * @param bool $updating
      * @return stdClass
      */
-    public static function populate_submitpapersto(stdClass $current) {
+    public static function populate_submitpapersto(stdClass $current, $updating) {
 
         $config = turnitintooltwo_admin_config();
 
         // Overwrite instructor default repository if admin is forcing repository setting.
-        if (isset($current->submitpapersto)) {
+        // BASE-2856.
+        if ($updating) {
             $submitpapersto = $current->submitpapersto;
         } else {
             $submitpapersto = $config->default_submitpapersto;

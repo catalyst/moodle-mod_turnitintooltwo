@@ -116,6 +116,10 @@ if ($viewcontext == "window") {
     }
 }
 
+// BASE-2316: Add rate limiting to turnitin
+// Check if TII is responding too slowly. If it is, we stop here.
+\local_blackboard\turnitinlimiter::check();
+
 // Don't show messages popup if we are in submission modal.
 $forbiddenmsgscreens = array('submission_success', 'submitpaper');
 if (in_array($do, $forbiddenmsgscreens)) {
@@ -524,6 +528,23 @@ switch ($do) {
         $submissionid = required_param('submissionid', PARAM_INT);
         $submission = new turnitintooltwo_submission($submissionid, 'turnitin');
 
+        // BASE-1553: Fix student privacy in Digital Receipt
+        // Obfuscated name in digital receipt like Tii v1.
+        $config = turnitintooltwo_admin_config();
+        if (!empty($config->enablepseudo) && !empty($config->forcepseudo)) {
+            $submission->lastname =  '';
+            $uidparams = array(
+                'userid' => $USER->id,
+                'fieldid' => $config->pseudolastname,
+            );
+            if ($userinfo = $DB->get_record('user_info_data', $uidparams)) {
+                if ($userinfo) {
+                    $submission->lastname = $userinfo->data;
+                }
+            }
+            $submission->firstname = $config->pseudofirstname;
+        }
+
         if ($istutor || $USER->id == $submission->userid) {
             $table = new html_table();
             $table->data = array(
@@ -532,7 +553,8 @@ switch ($do) {
                         $submissionid),
                 array(get_string('submissiontitle', 'turnitintooltwo'), $submission->submission_title),
                 array(get_string('receiptassignmenttitle', 'turnitintooltwo'), $turnitintooltwoassignment->turnitintooltwo->name),
-                array(get_string('submissiondate', 'turnitintooltwo'), date("d/m/y, H:i", $submission->submission_modified))
+                // BASE-1512: Fix Digital Receipt show submission in users local time
+                array(get_string('submissiondate', 'turnitintooltwo'), userdate($submission->submission_modified, get_string('strftimedatetimeshort', 'langconfig')))
             );
 
             $digitalreceipt = $OUTPUT->pix_icon('tii-logo', get_string('turnitin', 'turnitintooltwo'),
@@ -550,8 +572,30 @@ switch ($do) {
         break;
 
     case "submitpaper":
-        if ($istutor || (has_capability('mod/turnitintooltwo:submit', context_module::instance($cm->id)) &&
-                $user == $USER->id)) {
+        // BASE-1483: Fix Turnitintool 2 privacy and security enhancements
+        $allowsubmit = false;
+        $config = turnitintooltwo_admin_config();
+        if (!empty($config->restrictuploads)) {
+            // Prevent submit if user:
+            // 1. Is logged in as and doesn't have turnitintooltwo:submitwhenloggedinas cap.
+            // 2. Is attempting to submit another users submission and doesn't have turnitintooltwo:submitonbehalfof cap.
+            $context = context_module::instance($cm->id);
+            // BASE-1503: Fix restrictuploads bug incorrectly restricting upload form
+            $submitonbehalf = (!\core\session\manager::is_loggedinas()
+                && ($user == $USER->id || has_capability('mod/turnitintooltwo:submitonbehalfof',$context)));
+            $submitloggedin = (\core\session\manager::is_loggedinas()
+                && has_capability('mod/turnitintooltwo:submitwhenloggedinas', $context, $USER->realuser));
+            if ($submitloggedin || $submitonbehalf) {
+                $allowsubmit = true;
+            }
+        } else {
+            if ($istutor || (has_capability('mod/turnitintooltwo:submit', context_module::instance($cm->id)) &&
+                    $user == $USER->id)) {
+                $allowsubmit = true;
+            }
+        }
+
+        if ($allowsubmit) {
             echo $turnitintooltwoview->show_submission_form($cm, $turnitintooltwoassignment, $part,
                                                             $turnitintooltwofileuploadoptions, "box_solid", $user);
             unset($_SESSION['form_data']);
@@ -599,14 +643,16 @@ switch ($do) {
             $course = $turnitintooltwoassignment->get_course_data($turnitintooltwoassignment->turnitintooltwo->course, $coursetype);
             $user->join_user_to_class($course->turnitin_cid);
 
-            echo html_writer::tag("div", $turnitintooltwoview->output_lti_form_launch('rubric_view', 'Learner',
+            // BASE-890: fix various issues related to plugin upgrade
+            echo html_writer::tag("div", turnitintooltwo_view::output_lti_form_launch('rubric_view', 'Learner',
                                                     $parts[$part]->tiiassignid), array("class" => "launch_form"));
         }
         break;
 
     case "loadmessages":
         if ($istutor || has_capability('mod/turnitintooltwo:submit', context_module::instance($cm->id))) {
-            echo html_writer::tag("div", $turnitintooltwoview->output_lti_form_launch('messages_inbox', $userrole),
+            // BASE-890: fix various issues related to plugin upgrade
+            echo html_writer::tag("div", turnitintooltwo_view::output_lti_form_launch('messages_inbox', $userrole),
                                                     array("id" => "inbox_form"));
         }
         break;
@@ -742,13 +788,8 @@ switch ($do) {
         // Initialise inbox, if a student is logged in then populate it also incase they have no javascript.
         echo $turnitintooltwoview->init_submission_inbox($cm, $turnitintooltwoassignment, $parts, $turnitintooltwouser);
 
-        // Show submission form for students (only shows if they don't have javascript enabled).
-        if (!$istutor) {
-            echo html_writer::start_tag("div", array("class" => "js_hide"));
-            echo $turnitintooltwoview->show_submission_form($cm, $turnitintooltwoassignment, $part,
-                                                    $turnitintooltwofileuploadoptions, "window", $USER->id);
-            echo html_writer::end_tag("div");
-        } else if ($turnitintooltwoassignment->turnitintooltwo->anon > 0) {
+        // BASE-890: fix various issues related to plugin upgrade
+        if ($istutor) {
             // Put the html for unanonymising a submission below the form for including in lightbox.
             echo $turnitintooltwoview->show_unanonymise_form();
         }

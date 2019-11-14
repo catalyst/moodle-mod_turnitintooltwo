@@ -88,7 +88,8 @@ class backup_turnitintooltwo_activity_structure_step extends backup_activity_str
         $values['tiiaccount'] = $config->accountid;
         $turnitintooltwo->fill_values($values);
 
-        $part->set_source_table('turnitintooltwo_parts', array('turnitintooltwoid' => backup::VAR_ACTIVITYID));
+        //BASE-2454: Fix sorting of parts on activity duplication
+        $part->set_source_table('turnitintooltwo_parts', array('turnitintooltwoid' => backup::VAR_ACTIVITYID), 'id ASC');
 
         $course->set_source_sql("
             SELECT  t.id, t.courseid, t.ownerid, tu.turnitin_uid AS ownertiiuid,

@@ -24,8 +24,6 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-global $CFG;
-
 require_once(__DIR__.'/turnitintooltwo_assignment.class.php');
 require_once(__DIR__.'/turnitintooltwo_class.class.php');
 require_once($CFG->libdir . "/gradelib.php");
@@ -70,8 +68,6 @@ $tiiintegrationids = array(0 => get_string('nointegration', 'turnitintooltwo'), 
  */
 function turnitintooltwo_add_to_log($courseid, $eventname, $link, $desc, $cmid, $userid = 0) {
     global $USER;
-
-
     $eventname = str_replace(' ', '_', $eventname);
     $eventpath = '\mod_turnitintooltwo\event\\'.$eventname;
 
@@ -93,17 +89,20 @@ function turnitintooltwo_add_to_log($courseid, $eventname, $link, $desc, $cmid, 
  */
 function turnitintooltwo_supports($feature) {
     defined("FEATURE_SHOW_DESCRIPTION") or define("FEATURE_SHOW_DESCRIPTION", null);
+    // BASE-2268: Re-implement groupings option
     switch($feature) {
         case FEATURE_GROUPS:
-        case FEATURE_GROUPMEMBERSONLY:
+        case FEATURE_GROUPINGS:
         case FEATURE_MOD_INTRO:
         case FEATURE_COMPLETION_TRACKS_VIEWS:
         case FEATURE_GRADE_HAS_GRADE:
         case FEATURE_GRADE_OUTCOMES:
-        case FEATURE_BACKUP_MOODLE2:
         case FEATURE_SHOW_DESCRIPTION:
         case FEATURE_CONTROLS_GRADE_VISIBILITY:
             return true;
+        case FEATURE_BACKUP_MOODLE2:
+        case FEATURE_BACKUP_MOODLE2_DUPLICATION:
+            return false;
         default:
             return null;
     }
@@ -190,7 +189,8 @@ function turnitintooltwo_update_grades($turnitintooltwo, $userid = 0, $nullifnon
     $turnitintooltwoassignment = new turnitintooltwo_assignment($turnitintooltwo->id);
 
     try {
-        $turnitintooltwoassignment->edit_moodle_assignment(false);
+        // BASE-2291: Activity due dates disappearing from course calendar
+        $turnitintooltwoassignment->edit_moodle_assignment();
     } catch (Exception $e) {
         turnitintooltwo_comms::handle_exceptions($e, 'turnitintooltwoupdateerror', false);
     }
@@ -232,8 +232,8 @@ function turnitintooltwo_grade_item_update($turnitintooltwo, $grades = null) {
         $params['gradetype'] = GRADE_TYPE_NONE;
     }
 
-    // Get the latest part, for the post date and set the default hidden value on grade item.
-    $lastpart = $DB->get_record('turnitintooltwo_parts', array('turnitintooltwoid' => $turnitintooltwo->id), 'max(dtpost)');
+    // BASE-1587: Restrict grade item update to active TII parts
+    $lastpart = $DB->get_record('turnitintooltwo_parts', array('turnitintooltwoid' => $turnitintooltwo->id, 'deleted' => '0'), 'max(dtpost)');
     $lastpart = current($lastpart);
     $params['hidden'] = $lastpart;
 
@@ -913,6 +913,10 @@ function turnitintooltwo_tempfile(array $filename, $suffix) {
 function turnitintooltwo_updateavailable($currentversion) {
     global $CFG;
 
+    // BASE-890: fix various issues related to plugin upgrade
+    // NetSpot: We don't want the plugin polling TII on admin pages.
+    return false;
+
     $updateneeded['update'] = 0;
 
     try {
@@ -1349,6 +1353,8 @@ function turnitintooltwo_getusers() {
         $pseudoemail = "";
         if (!empty($config->enablepseudo)) {
             $pseudouser = new TiiPseudoUser(turnitintooltwo_user::get_pseudo_domain());
+            // BASE-1673: set the pseudo salt before getting the pseudo email.
+            $pseudouser->setPseudoSalt($config->pseudosalt);
             $pseudouser->setEmail($user->email);
             $pseudoemail = $pseudouser->getEmail();
         }
@@ -1386,6 +1392,9 @@ function turnitintooltwo_print_overview($courses, &$htmlarray) {
         return;
     }
 
+    // BASE-2290: Only show open assignments in course overview
+    $time = time();
+    $hideunopened = get_config("local_blackboard", "onlyshowopenassignmentsincourseoverview");
     $submissioncount = array();
     foreach ($turnitintooltwos as $turnitintooltwo) {
         $turnitintooltwoassignment = new turnitintooltwo_assignment($turnitintooltwo->id, $turnitintooltwo);
@@ -1410,7 +1419,7 @@ function turnitintooltwo_print_overview($courses, &$htmlarray) {
                 $submissioncount[$submission->submission_part]['submitted']++;
             }
         }
-
+        $isopen = false; //is any part of the assignment open?
         foreach ($parts as $part) {
 
             if (!isset($submissioncount[$part->id])) {
@@ -1430,7 +1439,10 @@ function turnitintooltwo_print_overview($courses, &$htmlarray) {
                 $input->total = count_enrolled_users($context, 'mod/turnitintooltwo:submit', 0);
                 $input->gplural = ($graded != 1) ? 's' : '';
                 $partsarray[$part->id]['status'] = get_string('tutorstatus', 'turnitintooltwo', $input);
-            } else {
+            // BASE-2290: mod_turnitintooltwo: Only show open assignments in course overview
+            } else if ( ($part->dtstart <= $time && $part->dtdue >= $time) || ! $hideunopened ) { //is this part of the assignment open?
+                $isopen = true;
+
                 // If user is a student.
                 $submission = $turnitintooltwoassignment->get_submissions($cm, $part->id, $USER->id, 1);
 
@@ -1446,26 +1458,31 @@ function turnitintooltwo_print_overview($courses, &$htmlarray) {
             }
         }
 
-        $attributes["class"] = ($turnitintooltwo->visible ? "" : "dimmed");
-        $attributes["title"] = get_string('modulename', 'turnitintooltwo');
-        $assignmentlink = html_writer::link($CFG->wwwroot."/mod/turnitintooltwo/view.php?id=".$turnitintooltwo->coursemodule,
-                                $turnitintooltwo->name, $attributes);
+        // BASE-2290: mod_turnitintooltwo: Only show open assignments in course overview
+        if ( $grader || $isopen || ! $hideunopened ) {
+            $attributes["class"] = ($turnitintooltwo->visible ? "" : "dimmed");
+            $attributes["title"] = get_string('modulename', 'turnitintooltwo');
+            $assignmentlink = html_writer::link($CFG->wwwroot."/mod/turnitintooltwo/view.php?id=".$turnitintooltwo->coursemodule,
+                                    $turnitintooltwo->name, $attributes);
 
-        $partsblock = "";
-        foreach ($partsarray as $thispart) {
-            $partstr = $thispart['name'].' - '.get_string('dtdue', 'turnitintooltwo').': '.userdate($thispart['dtdue'],
-                                    get_string('strftimedatetimeshort', 'langconfig'), $USER->timezone);
-            $partsblock .= $OUTPUT->box($OUTPUT->box($partstr, 'bold').$OUTPUT->box($thispart['status'], 'italic'), 'info');
-        }
+            $partsblock = "";
+            foreach ($partsarray as $thispart) {
+                if ( array_key_exists('status', $thispart) ) { //if undefined we don't want to show info for this part
+                    $partstr = $thispart['name'].' - '.get_string('dtdue', 'turnitintooltwo').': '.userdate($thispart['dtdue'],
+                                            get_string('strftimedatetimeshort', 'langconfig'), $USER->timezone);
+                    $partsblock .= $OUTPUT->box($OUTPUT->box($partstr, 'bold') . $OUTPUT->box($thispart['status'], 'italic'), 'info');
+                }
+            }
 
-        $str = html_writer::tag('div',
-                        html_writer::tag('div', get_string('modulename', 'turnitintooltwo').": ".$assignmentlink.$partsblock,
-                            array('class' => 'name')), array('class' => 'turnitintooltwo overview'));
+            $str = html_writer::tag('div',
+                            html_writer::tag('div', get_string('modulename', 'turnitintooltwo').": ".$assignmentlink.$partsblock,
+                                array('class' => 'name')), array('class' => 'turnitintooltwo overview'));
 
-        if (empty($htmlarray[$turnitintooltwo->course]['turnitintooltwo'])) {
-            $htmlarray[$turnitintooltwo->course]['turnitintooltwo'] = $str;
-        } else {
-            $htmlarray[$turnitintooltwo->course]['turnitintooltwo'] .= $str;
+            if (empty($htmlarray[$turnitintooltwo->course]['turnitintooltwo'])) {
+                $htmlarray[$turnitintooltwo->course]['turnitintooltwo'] = $str;
+            } else {
+                $htmlarray[$turnitintooltwo->course]['turnitintooltwo'] .= $str;
+            }
         }
     }
 }
@@ -1485,12 +1502,8 @@ function turnitintooltwo_show_browser_new_course_form() {
     $parentlist = array();
     require_once($CFG->dirroot."/course/lib.php");
 
-    if (file_exists($CFG->libdir.'/coursecatlib.php')) {
-        require_once($CFG->libdir.'/coursecatlib.php');
-        $displaylist = coursecat::make_categories_list('');
-    } else {
-        make_categories_list($displaylist, $parentlist, '');
-    }
+    // BASE-2624: Fixes for upgrade
+    $displaylist = core_course_category::make_categories_list('');
 
     $elements[] = array('select', 'coursecategory', get_string('category'), '', $displaylist);
     $elements[] = array('text', 'coursename', get_string('coursetitle', 'turnitintooltwo'), '');
@@ -1713,6 +1726,49 @@ function turnitintooltwo_override_repository($submitpapersto) {
 }
 
 /**
+ * Existing calendar events for assignment parts are created instead of being updated when the activity has been renamed. Remove the
+ * old/duplicate events when the activity has been renamed.
+ *
+ * @param int $courseid - the course ID the assignment resides in
+ * @param object $instance - the instance object of the module
+ * @throws object dml_exception - A DML specific exception is thrown for any errors.
+ */
+function turnitintooltwo_refresh_events($courseid, $instance) {
+    global $DB;
+
+    $events = $DB->get_records('event', ['courseid' => $courseid, 'modulename' => 'turnitintooltwo', 'instance' => $instance->id], '', 'id, name');
+
+    $deleteids = [];
+    foreach ($events as $event) {
+        // The assignment's part name is appended to the assignment's name - with a hyphen when adding the event. Slice the string
+        // to retrieve the left portion of the string at the last occurrence of the '-' character.
+        $assignmentname = rtrim(substr($event->name, 0, strrpos($event->name, '-')));
+
+        if ($assignmentname !== $instance->name) {
+            $deleteids[] = $event->id;
+        }
+    }
+    $DB->delete_records_list('event', 'id', $deleteids);
+}
+
+/**
+ * Checks if the passed in course module parameter is of type assign and has Turnitin enabled. If so, replace the normal
+ * assignment icon to better tell that a normal assignment has Turnitin enabled.
+ *
+ * @param cm_info $mod
+ * @throws dml_exception
+ */
+function change_assign_turnitintooltwo_icon(cm_info $mod) {
+    global $DB, $OUTPUT;
+
+    if ($mod->modname == 'assign') {
+        $record = $DB->get_record('plagiarism_turnitin_config', ['cm' => $mod->id, 'name' => 'use_turnitin'], 'id, value');
+        if ($record->value) {
+            $mod->set_icon_url($OUTPUT->pix_url('normal-assign-tii2', 'mod_turnitintooltwo'));
+        }
+    }
+}
+/**
  * This function receives a calendar event and returns the action associated with it, or null if there is none.
  *
  * This is used by block_myoverview in order to display the event appropriately. If null is returned then the event
@@ -1732,31 +1788,36 @@ function mod_turnitintooltwo_core_calendar_provide_event_action(calendar_event $
     $customdata = $cm->customdata ?: [];
     $customdata['id'] = $cm->instance;
     $data = (object)($customdata + ['timeclose' => 0, 'timeopen' => 0]);
-    $assignmentpart = $DB->get_record('turnitintooltwo_parts', array('turnitintooltwoid' => $customdata['id']), 'max(dtpost)');
-    
-    // Check whether the logged in user has a submission, should always be false for Instructors.
-    $hassubmission = false;
-    if (!$isinstructor) { 
-        $queryparams = array('userid' => $USER->id, 'turnitintooltwoid' => $customdata['id']);
-        $hassubmission = $DB->get_records('turnitintooltwo_submissions', $queryparams);
-    }
-
-    if ((!empty($cm->customdata['timeclose']) && $cm->customdata['timeclose'] < time()) ||
-        $assignmentpart->max < time() || !empty($hassubmission))  {
-        // The assignment has closed so the user can no longer submit anything.
-        return null;
-    }
 
     // Check that the activity is open.
     list($actionable, $warnings) = mod_turnitintooltwo_get_availability_status($data, true, context_module::instance($cm->id));
 
-    $identifier = ($isinstructor) ? 'allsubmissions' : 'addsubmission';
-    return $factory->create_instance(
-        get_string($identifier, 'turnitintooltwo'),
-        new \moodle_url('/mod/turnitintooltwo/view.php', array('id' => $cm->id)),
-        1,
-        $actionable
-    );
+    $identifier = (has_capability('mod/turnitintooltwo:grade', context_module::instance($cm->id))) ? 'allsubmissions' : 'addsubmission';
+
+    // Get the Turnitin assignment part name from the event name.
+    // BASE-2581, BASE-2602, BASE-2618, BASE-2686, BASE-2782
+    $partname = trim(substr($event->name, strrpos($event->name, "-") + 1));
+
+    $params = ['turnitintooltwoid' => $cm->instance, 'userid' => $USER->id, 'partname' => $partname];
+
+    // Get the submission part that has not yet been graded. If it's been graded, it shouldn't display in the overview block.
+    $sql = "SELECT ts.id FROM {turnitintooltwo_submissions} ts
+            JOIN {turnitintooltwo_parts} tp ON ts.submission_part = tp.id
+            WHERE ts.turnitintooltwoid = :turnitintooltwoid
+            AND ts.userid = :userid
+            AND tp.partname = :partname";
+
+    $record = $DB->get_record_sql($sql, $params);
+
+    if (!$record) {
+        return $factory->create_instance(
+            get_string($identifier, 'turnitintooltwo'),
+            new \moodle_url('/mod/turnitintooltwo/view.php', array('id' => $cm->id)),
+            1,
+            $actionable
+        );
+    }
+    return null;
 }
 
 /**

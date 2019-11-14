@@ -44,7 +44,12 @@ class members_view {
         $output  = "";
         $istutor = $this->is_tutor();
 
-        if (!$istutor) {
+        // BASE-1491: Optionally control visibility of "Turnitin Students" & "Turnitin Tutors"
+        $context = context_module::instance($this->coursemodule->id);
+        $managetutors = has_capability('mod/turnitintooltwo:managetutors', $context);
+        // BASE-1504: Improve error handling for "Turnitin Students" link without permission
+        $managestudents = has_capability('mod/turnitintooltwo:managestudents', $context);
+        if (!$istutor || ($displayrole == 'tutors' && !$managetutors) || ($displayrole == 'students' && !$managestudents)) {
             turnitintooltwo_print_error('permissiondeniederror', 'turnitintooltwo');
             exit();
         }

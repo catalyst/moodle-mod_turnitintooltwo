@@ -19,14 +19,18 @@
 
         // Disable/enable assignment submission when the submission checkbox is checked/unchecked.
         $('#id_submissionagreement').on('click', function () {
+            // BASE-2692: Toggle error class on onclick for copyrightagreement checkbox
+            var submissionagreementspan = $('label[for=id_submissionagreement]').parents("span");
             if ($(this).is(':checked')) {
                 $('#id_submissionagreement').each(function () {
                     $('#id_submitbutton').removeAttr('disabled');
                 });
+                submissionagreementspan.removeClass('error');
             } else {
                 $('#id_submissionagreement').each(function () {
                     $('#id_submitbutton').attr('disabled', 'disabled');
                 });
+                submissionagreementspan.addClass('error');
             }
         });
 
@@ -784,7 +788,8 @@
                 'combodate': {
                     'minuteStep': 1,
                     'minYear': 2000,
-                    'maxYear': theDate.getFullYear() + 2,
+                    // BASE-2062: Fix year combo box year ajax to match contents in activity settings combobox
+                    'maxYear': theDate.getFullYear() + 6,
                     'smartDays': true
                 },
                 validate: function (value) {
@@ -1206,7 +1211,8 @@
         }
 
         function lightBoxCloseButton() {
-            $('body').append('<div id="tii_close_bar"><a href="#" onclick="jQuery(\'#cboxClose\').click(); return false;">' + M.str.turnitintooltwo.closebutton + '</a></div>');
+            // BASE-2956: Fix colorbox not closing
+            $('body').append('<div id="tii_close_bar"><a href="#" onclick="window.colorbox.close(); return false;">' + M.str.turnitintooltwo.closebutton + '</a></div>');
         }
 
         function initialiseDigitalReceipt() {

@@ -91,6 +91,33 @@ function xmldb_turnitintooltwo_upgrade($oldversion) {
         }
     }
 
+    if ($oldversion < 2013111403) {
+        $dbman = $DB->get_manager();
+        $table = new xmldb_table('turnitintooltwo_parts');
+        $field = new xmldb_field('dtasync', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'migrated');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+        $field = new xmldb_field('dtssync', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'dtasync');
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $table = new xmldb_table('turnitintooltwo_submissions');
+        $field = new xmldb_field('dtrsync', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'submission_transmatch');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        $table = new xmldb_table('turnitintooltwo_users');
+        $field = new xmldb_field('dtusync', XMLDB_TYPE_INTEGER, '10', XMLDB_UNSIGNED, XMLDB_NOTNULL, null, 0, 'instructor_rubrics');
+
+        if (!$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+    }
+
     if ($oldversion < 2014012412) {
         $table = new xmldb_table('turnitintooltwo');
         $field = new xmldb_field('needs_updating', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, 0, 'allownonor');
@@ -126,7 +153,10 @@ function xmldb_turnitintooltwo_upgrade($oldversion) {
         if (!$dbman->field_exists($table, $field)) {
             $dbman->add_field($table, $field);
         } else {
-            $dbman->change_field_unsigned($table, $field);
+            // NetSpot: pgsql doesn't use unsigned in the first place.
+            if ($CFG->dbtype != 'pgsql') {
+                $dbman->change_field_unsigned($table, $field);
+            }
         }
     }
 

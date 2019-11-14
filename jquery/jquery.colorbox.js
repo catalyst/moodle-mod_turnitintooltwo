@@ -1075,4 +1075,7 @@
 
     publicMethod.settings = defaults;
 
+    // BASE-2956: Ensure colorbox function is accessible
+    window.colorbox = $.colorbox;
+
 }(jQuery, document, window));

@@ -908,7 +908,7 @@ class LTI extends OAuthSimple {
      * @return string
      */
     public function getTestingConnection() {
-        return $this->$testingconnection;
+        return $this->testingconnection;
     }
 
     public function setTestingConnection($testingconnection) {
@@ -932,10 +932,15 @@ class LTI extends OAuthSimple {
      * @param array $params
      */
     private function transportData( $params ) {
+
+        //BASE-454: Add configurable execution timeouts to Turnitin V2 and set defaults
+        $config = turnitintooltwo_admin_config();
+        $timeout = !empty($config->requesttimeouttransport) ? $config->requesttimeouttransport : 300;
+
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL,            $this->endpoint );
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_TIMEOUT,        600);
+        curl_setopt($ch, CURLOPT_TIMEOUT,        $timeout);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true );
         curl_setopt($ch, CURLOPT_POST,           true );
         curl_setopt($ch, CURLOPT_POSTFIELDS,     $params);

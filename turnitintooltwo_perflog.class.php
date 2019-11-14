@@ -61,6 +61,7 @@ class turnitintooltwo_performancelog extends PerformanceLog {
                 $str .= " - $action";
             } else {
                 $do = (!empty($_REQUEST['do'])) ? $_REQUEST['do'] : '';
+                $do = clean_param($do, PARAM_ALPHANUMEXT); // BASE-2624: Fixes for upgrade
                 if (!empty($do)) {
                     $str .= " - {$do}";
                 }

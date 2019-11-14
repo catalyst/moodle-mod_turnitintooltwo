@@ -75,5 +75,46 @@ $capabilities = array(
             'editingteacher' => CAP_ALLOW
         ),
         'clonepermissionsfrom' => 'moodle/course:manageactivities'
-    )
+    ),
+
+    // BASE-1441: ANU privacy and security enhancements
+    'mod/turnitintooltwo:submitonbehalfof' => array(
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'legacy' => array(
+            'teacher' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW
+        )
+    ),
+
+    // BASE-1441: ANU privacy and security enhancements
+    'mod/turnitintooltwo:submitwhenloggedinas' => array(
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'legacy' => array(
+            'teacher' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW
+        )
+    ),
+
+    'mod/turnitintooltwo:managestudents' => array(
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'legacy' => array(
+            'teacher' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW
+        ),
+        'clonepermissionsfrom' => 'mod/turnitintooltwo:grade'
+    ),
+
+    'mod/turnitintooltwo:managetutors' => array(
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_MODULE,
+        'legacy' => array(
+            'teacher' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW
+        ),
+        'clonepermissionsfrom' => 'mod/turnitintooltwo:grade'
+    ),
+
 );

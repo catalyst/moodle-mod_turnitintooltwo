@@ -162,7 +162,7 @@ class Soap extends SoapClient {
     }
 
     public function getTestingConnection() {
-        return $this->$testingconnection;
+        return $this->testingconnection;
     }
 
     public function setTestingConnection($testingconnection) {
@@ -302,10 +302,14 @@ class Soap extends SoapClient {
         $auth_headers[] = 'Authorization: '.$this->getOAuthHeader( $location, $request );
         $curl_headers = array_merge( $http_headers, $auth_headers );
 
+        // BASE-454: Add configurable execution timeouts to Turnitin V2 and set defaults
+        $config = turnitintooltwo_admin_config();
+        $timeout = !empty($config->requesttimeout) ? $config->requesttimeout : 30;
+
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL,            $location );
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_TIMEOUT,        120);
+        curl_setopt($ch, CURLOPT_TIMEOUT,        $timeout);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true );
         curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true );
         curl_setopt($ch, CURLOPT_POST,           true );
@@ -331,6 +335,8 @@ class Soap extends SoapClient {
         }
 
         $result = curl_exec($ch);
+        // BASE-2316: Add rate limiting to turnitin
+        \local_blackboard\turnitinlimiter::track(curl_getinfo($ch, CURLINFO_TOTAL_TIME));
 
         if ($this->performancelog !== null) {
             $this->performancelog->stop_timer($ch);

@@ -62,6 +62,10 @@ class mod_turnitintooltwo_instructor_message_testcase extends advanced_testcase 
         $this->resetAfterTest();
         $this->preventResetByRollback();
 
+        // BASE-2315: Fix unit test sending instructor notificiations
+        // Ensure the permissions to send the message are enabled.
+        set_config('mod_turnitintooltwo_notify_instructor_of_submission_disable', '', 'message');
+
         $sink = $this->redirectMessages();
 
         $instructor_message = new instructor_message();

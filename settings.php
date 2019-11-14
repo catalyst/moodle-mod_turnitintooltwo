@@ -135,10 +135,11 @@ if ($ADMIN->fulltree) {
         }
     }
 
+    // BASE-1454: Fix default settings on install
     $settings->add(new admin_setting_configselect('turnitintooltwo/apiurl',
                                     get_string("turnitinapiurl", "turnitintooltwo"),
                                     get_string("turnitinapiurl_desc", "turnitintooltwo").$offlinecomment.$testconnection,
-                                    0, $testoptions));
+                                    'https://api.turnitin.com', $testoptions));
 
     // Miscellaneous settings.
     $settings->add(new admin_setting_heading('turnitintooltwo_debugginglogs',
@@ -228,6 +229,34 @@ if ($ADMIN->fulltree) {
                                                     get_string('turnitininboxlayout_desc', 'turnitintooltwo'),
                                                     0, $layoutoptions));
 
+    // NetSpot settings.
+    $settings->add(new admin_setting_configtext('turnitintooltwo/assigncachettl',
+            get_string("assigncachettl", "turnitintooltwo"),
+            get_string("assigncachettl_desc", "turnitintooltwo"), 300));
+
+    $settings->add(new admin_setting_configtext('turnitintooltwo/submissioncachettl',
+            get_string("submissioncachettl", "turnitintooltwo"),
+            get_string("submissioncachettl_desc", "turnitintooltwo"), 300));
+
+    $settings->add(new admin_setting_configtext('turnitintooltwo/usercachettl',
+            get_string("usercachettl", "turnitintooltwo"),
+            get_string("usercachettl_desc", "turnitintooltwo"), 300));
+
+    $settings->add(new admin_setting_configtext('turnitintooltwo/requesttimeout',
+            get_string("requesttimeout", "turnitintooltwo"),
+            get_string("requesttimeout_desc", "turnitintooltwo"), 30));
+
+    $settings->add(new admin_setting_configtext('turnitintooltwo/requesttimeouttransport',
+            get_string("requesttimeouttransport", "turnitintooltwo"),
+            get_string("requesttimeouttransport_desc", "turnitintooltwo"), 300));
+
+    // BASE-1441: ANU privacy and security enhancements
+    // BASE-1483: Fix Turnitintool 2 privacy and security enhancements
+    $settings->add(new admin_setting_configselect('turnitintooltwo/restrictuploads', get_string('restrictuploads', 'turnitintooltwo'),
+        get_string('restrictuploads_desc', 'turnitintooltwo'), 0, $ynoptions));
+
+    // End NetSpot settings.
+
     // Following are values for student privacy settings.
     $settings->add(new admin_setting_heading('turnitintooltwo_privacy', get_string('studentdataprivacy', 'turnitintooltwo'),
                        get_string('studentdataprivacy_desc', 'turnitintooltwo')));
@@ -253,6 +282,14 @@ if ($ADMIN->fulltree) {
     $settings->add($pseudoselect);
 
     if (isset($config->enablepseudo) AND $config->enablepseudo) {
+        $config->pseudofirstname = ( isset( $config->pseudofirstname ) ) ?
+                                        $config->pseudofirstname : get_string('defaultcoursestudent');
+
+        // BASE-1441: ANU privacy and security enhancements settings fix
+        $forcepseudoselect = new admin_setting_configselect('turnitintooltwo/forcepseudo', get_string('forcepseudo', 'turnitintooltwo'),
+                       get_string('forcepseudo_desc', 'turnitintooltwo'), 0, $ynoptions);
+        $settings->add($forcepseudoselect);
+
         $settings->add(new admin_setting_configtext('turnitintooltwo/pseudofirstname',
                                                         get_string('pseudofirstname', 'turnitintooltwo'),
                                                         get_string('pseudofirstname_desc', 'turnitintooltwo'),

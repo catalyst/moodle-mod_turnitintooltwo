@@ -41,7 +41,8 @@ class mod_form_test extends advanced_testcase {
         // Test that System Default is not applied
         set_config('default_submitpapersto', 0, 'turnitintooltwo');
 
-        $current = mod_turnitintooltwo_mod_form::populate_submitpapersto($current);
+        // BASE-2856.
+        $current = mod_turnitintooltwo_mod_form::populate_submitpapersto($current, true);
 
         $this->assertEquals($current->submitpapersto, 1);
     }
@@ -59,7 +60,8 @@ class mod_form_test extends advanced_testcase {
         // Test that System Default is not applied
         set_config('default_submitpapersto', 0, 'turnitintooltwo');
 
-        $current = mod_turnitintooltwo_mod_form::populate_submitpapersto($current);
+        // BASE-2856.
+        $current = mod_turnitintooltwo_mod_form::populate_submitpapersto($current, false);
 
         $this->assertEquals($current->submitpapersto, 0);
     }

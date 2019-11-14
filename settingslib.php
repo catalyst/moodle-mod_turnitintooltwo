@@ -39,7 +39,8 @@ class admin_setting_configtext_int_only extends admin_setting_configtext {
         $this->paramtype = PARAM_INT;
         $this->size = (!is_null($size)) ? $size : 30;
 
-        admin_setting::__construct($name, $visiblename, $description, $defaultsetting);
+        // BASE-1454: Fix default settings on install
+        parent::__construct($name, $visiblename, $description, $defaultsetting);
     }
 
     public function write_setting($data) {

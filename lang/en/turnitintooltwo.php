@@ -688,3 +688,40 @@ $string['privacy:metadata:turnitintooltwo_client:submission_filename'] = 'The na
 $string['privacy:metadata:turnitintooltwo_client:submission_content'] = 'Please be aware that the content of a file/submission is sent to Turnitin for processing.';
 $string['max_marks_warning'] = 'Please be aware that changing the Marks Available after grading may affect the gradebook';
 $string['download_button_warning'] = 'A student must be selected for this feature to be available.';
+
+
+// BASE related changes.
+$string['assigncachettl'] = 'Turnitin Assignment cache time (in seconds)';
+$string['assigncachettl_desc'] = 'This setting improves performance by keeping a copy of assignment data for the defined time period before refreshing from Turnitin.';
+$string['forcepseudo'] = 'Force Privacy';
+$string['forcepseudo_desc'] = 'If this option is selected all email addresses will be transformed into a pseudo equivalent for Turnitin API calls.';
+$string['mod_assign_genduedate'] = 'Generate report on assignment due date';
+$string['mod_assign_genimmediately1'] = 'Generate report on submission';
+$string['mod_assign_genimmediately2'] = 'Generate reports until submitted';
+$string['mod_forum_genduedate'] = 'Generate reports on due date (resubmissions are allowed until due date)';
+$string['mod_forum_genimmediately1'] = 'Generate reports immediately (resubmissions are not allowed)';
+$string['mod_forum_genimmediately2'] = 'Generate reports immediately (resubmissions are allowed until due date)';
+$string['mod_workshop_genduedate'] = 'Generate reports on due date (resubmissions are allowed until due date)';
+$string['mod_workshop_genimmediately1'] = 'Generate reports immediately (resubmissions are not allowed)';
+$string['mod_workshop_genimmediately2'] = 'Generate reports immediately (resubmissions are allowed until due date)';
+$string['requesttimeout'] = 'API execution timeout (in seconds)';
+$string['requesttimeout_desc'] = 'Maximum execution timeout setting for remote API calls to Turnitin';
+$string['requesttimeouttransport'] = 'File API execution timeout (in seconds)';
+$string['requesttimeouttransport_desc'] = 'Maximum execution timeout setting for remote API calls to Turnitin that handle file uploads';
+$string['submissioncachettl'] = 'Turnitin Submission cache time (in seconds)';
+$string['submissioncachettl_desc'] = 'This setting improves performance by keeping a copy of submission data for the defined time period before refreshing from Turnitin.';
+$string['turnitintooltwo:managestudents'] = 'Manage students in Turnitin classes from within Turnitin activities';
+$string['turnitintooltwo:managetutors'] = 'Manage tutor enrolments in Turnitin classes from within Turnitin activities';
+$string['turnitintooltwo:submitonbehalfof'] = 'Submit Turnitin Tool Assignments on behalf of other users';
+$string['turnitintooltwo:submitwhenloggedinas'] = 'Submit Turnitin Tool Assignments when \'logged in\' as other users';
+$string['usercachettl'] = 'Turnitin User cache time (in seconds)';
+$string['usercachettl_desc'] = 'This setting improves performance by keeping a copy of user data for the defined time period before refreshing from Turnitin.';
+$string['emailnonsubmitters'] = 'Notify Non-Submitters';
+
+// BASE-1493: Fix Turnitintool 2 privacy and security enhancements
+$string['restrictuploads'] = 'Restrict uploading on behalf of students';
+$string['restrictuploads_desc'] = 'Check capabilities mod/turnitintooltwo:submitonbehalfof and mod/turnitintooltwo:submitwhenloggedinas before showing options to submit on behalf of, or when logged in as, other users.';
+
+// BASE-1691: Fix missing string studentgrademark
+$string['studentgrademark'] = 'Release GradeMark Report to Students';
+$string['studentgrademark_help'] = 'Allows you to release GradeMark reports to student users.  If set to yes the GradeMark report will be available for the student to view.';$string['migrationtool:gradebookerror'] = 'Your assignment has successfully migrated from Moodle Direct V1 to V2. However, some grades failed to update in the grade book during migration. The original V1 assignment is available for you to check any conflicting grades. Please remove the V1 assignment once you\'ve completed this check.<br><br><strong>Warning:</strong> Failing to remove a migrated V1 assignment may cause grades to count twice towards the grade book total.';

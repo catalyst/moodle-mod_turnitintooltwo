@@ -208,6 +208,10 @@ class mod_lib_testcase extends test_lib {
         $update->dtpost = 1502202147;
         $update->unanon = 0;
         $update->submitted = 0;
+        // MRE custom fields.
+        $update->dtasync = '0';
+        $update->dtssync = '0';
+
 
         turnitintooltwo_reset_part_update($update, 1);
 

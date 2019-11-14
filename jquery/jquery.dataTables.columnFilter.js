@@ -340,11 +340,12 @@
             for (j = 0; j < iLen; j++) {
                 if (typeof (aData[j]) != 'object') {
                     var selected = '';
-                    if (escape(aData[j]) == currentFilter
-                        || escape(aData[j]) == escape(currentFilter)
+                    // BASE-2624: Fixes for upgrade
+                    if (encodeURI(aData[j]) == currentFilter
+                        || encodeURI(aData[j]) == encodeURI(currentFilter)
                         )
                         selected = 'selected '
-                    r += '<option ' + selected + ' value="' + escape(aData[j]) + '">' + aData[j] + '</option>';
+                    r += '<option ' + selected + ' value="' + encodeURI(aData[j]) + '">' + aData[j] + '</option>';
                 }
                 else {
                     var selected = '';
@@ -353,8 +354,9 @@
                         if (aData[j].value == currentFilter) selected = 'selected ';
                         r += '<option ' + selected + 'value="' + aData[j].value + '">' + aData[j].label + '</option>';
                     } else {
-                        if (escape(aData[j].value) == currentFilter) selected = 'selected ';
-                        r += '<option ' + selected + 'value="' + escape(aData[j].value) + '">' + aData[j].label + '</option>';
+                        // BASE-2624: Fixes for upgrade
+                        if (encodeURI(aData[j].value) == currentFilter) selected = 'selected ';
+                        r += '<option ' + selected + 'value="' + encodeURI(aData[j].value) + '">' + aData[j].label + '</option>';
                     }
                 }
             }
@@ -372,11 +374,13 @@
                 if (bRegex)
                     oTable.fnFilter($(this).val(), iColumn, bRegex); //Issue 41
                 else
-                    oTable.fnFilter(unescape($(this).val()), iColumn); //Issue 25
+                    // BASE-2624: Fixes for upgrade
+                    oTable.fnFilter(decodeURI($(this).val()), iColumn); //Issue 25
                 fnOnFiltered();
             });
             if (currentFilter != null && currentFilter != "")//Issue 81
-                oTable.fnFilter(unescape(currentFilter), iColumn);
+                // BASE-2624: Fixes for upgrade
+                oTable.fnFilter(decodeURI(currentFilter), iColumn);
         }
 
         function fnCreateSelect(oTable, aData, bRegex, oSelected) {

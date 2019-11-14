@@ -310,7 +310,7 @@ class KLogger
      */
     public function logFatal($line, $args = self::NO_ARGUMENTS)
     {
-        $this->log($line, self::FATAL, $args);
+        $this->log($line, self::CRIT, $args); // BASE-2624: Fixes for upgrade
     }
 
     /**
@@ -396,8 +396,7 @@ class KLogger
                 return "$time - ALERT -->";
             case self::CRIT:
                 return "$time - CRIT -->";
-            case self::FATAL: # FATAL is an alias of CRIT
-                return "$time - FATAL -->";
+            // BASE-2624: Fixes for upgrade
             case self::NOTICE:
                 return "$time - NOTICE -->";
             case self::INFO:

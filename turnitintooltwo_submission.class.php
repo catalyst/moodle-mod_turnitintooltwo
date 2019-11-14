@@ -170,7 +170,13 @@ class turnitintooltwo_submission {
         if ($idtype == "moodle") {
             $condition = array("id" => $this->id);
         } else {
-            $condition = array("submission_objectid" => $this->submission_objectid);
+            // BASE-2360: Digital receipt not displaying for student
+            if (empty($turnitintooltwoassignment)) {
+                $condition = array("submission_objectid" => $this->submission_objectid);
+            } else {
+                // BASE-2278: Tii assignment inbox of original course not displaying submissions after being restored.
+                $condition = array("submission_objectid" => $this->submission_objectid, "turnitintooltwoid" => $turnitintooltwoassignment->turnitintooltwo->id);
+            }
         }
 
         if ($submission = $DB->get_record('turnitintooltwo_submissions',
@@ -378,7 +384,14 @@ class turnitintooltwo_submission {
             $submission->setSubmissionId($this->submission_objectid);
 
             try {
-                $response = $turnitincall->deleteSubmission($submission);
+                // BASE-1557: Prevent accidental deletion of TII object
+                // BASE-2371: Submissions not being deleted from Turnitin when deleted from Moodle
+                // If this is the only submission record linked to the tii
+                // object, delete it from tii.
+                $params = array('submission_objectid' => $submission->getSubmissionId());
+                if (!$DB->record_exists('turnitintool_submissions', $params)) {
+                    $response = $turnitincall->deleteSubmission($submission);
+                }
 
                 turnitintooltwo_add_to_log(
                     $turnitintooltwoassignment->turnitintooltwo->course,
@@ -532,6 +545,23 @@ class turnitintooltwo_submission {
                     $user->firstname,
                     $user->lastname
                 );
+
+                // BASE-1533: Remove student details from submission filenames (forcepseudo)
+                // Overwrite user_details if force pseudo enabled.
+                if (!empty($config->enablepseudo) && !empty($config->forcepseudo)) {
+                    $userdetails = array();
+
+                    $uidparams = array(
+                        'userid' => $this->userid,
+                        'fieldid' => $config->pseudolastname,
+                    );
+                    if ($userinfo = $DB->get_record('user_info_data', $uidparams)) {
+                        if ($userinfo) {
+                            $userdetails[] = $userinfo->data;
+                        }
+                    }
+                    $userdetails[] = $user->tiiuserid;
+                }
 
                 $filename = array_merge($userdetails, $filename);
             }
@@ -711,7 +741,8 @@ class turnitintooltwo_submission {
         static $part;
         static $tiiassignid;
         if ($tiiassignid != $tiisubmissiondata->getAssignmentId() || empty($part)) {
-            $part = $DB->get_record("turnitintooltwo_parts", array("tiiassignid" => $tiisubmissiondata->getAssignmentId()));
+            // BASE-2288: Submissions not loading in inbox when activity is duplicated due to assignment id being duplicated
+            $part = $DB->get_record("turnitintooltwo_parts", array("tiiassignid" => $tiisubmissiondata->getAssignmentId(), "turnitintooltwoid" => $this->turnitintooltwoid));
         }
         $turnitintooltwoassignment = new turnitintooltwo_assignment($part->turnitintooltwoid);
 
@@ -794,6 +825,9 @@ class turnitintooltwo_submission {
                 }
             }
 
+            // NetSpot: Save last sync time.
+            $sub->dtrsync = time();
+
             // Create our submission hash to prevent duplication.
             $sub->submission_hash = $sub->userid.'_'.$sub->turnitintooltwoid.'_'.$sub->submission_part;
             // Check submission hash doesn't exist already
@@ -813,6 +847,14 @@ class turnitintooltwo_submission {
 
             // Update the Moodle gradebook.
             $this->update_gradebook($sub, $turnitintooltwoassignment);
+        }
+        else if (!empty($this->id)) { // NetSpot.
+            // Nothing changed in Tii but still save last sync time
+            $sub = (object) array(
+                'id' => $this->id,
+                'dtrsync' => time(),
+            );
+            $DB->update_record('turnitintooltwo_submissions', $sub);
         }
     }
 

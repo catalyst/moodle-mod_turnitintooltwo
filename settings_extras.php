@@ -26,7 +26,13 @@ require_once($CFG->libdir.'/tablelib.php');
 require_once(__DIR__."/lib.php");
 require_once(__DIR__."/turnitintooltwo_view.class.php");
 
-admin_externalpage_setup('managemodules');
+// BASE-1560: Add extend navigation/settings, TIIv2 settings extension
+$ext = '\local_pluginextender\extension\mod_turnitintooltwo_unlinkandfiles';
+if (class_exists($ext) && $ext::user_has_access()) {
+    \local_pluginextender\extension\mod_turnitintooltwo_unlinkandfiles::setup_page();
+} else {
+    admin_externalpage_setup('managemodules');
+}
 
 $turnitintooltwoview = new turnitintooltwo_view();
 $turnitintooltwoview->load_page_components();
@@ -78,7 +84,8 @@ switch ($cmd) {
 
             $output .= "== ".$table." ==\r\n\r\n";
 
-            if ($data = $DB->get_records($table)) {
+            // BASE-1909: Optimise save report functionality
+            if ($data = $DB->get_recordset($table)) {
 
                 $headers = array_keys($DB->get_columns($table));
                 $columnwidth = 25;
@@ -330,12 +337,8 @@ switch ($cmd) {
         $displaylist = array();
         $parentlist = array();
 
-        if (file_exists($CFG->libdir.'/coursecatlib.php')) {
-            require_once($CFG->libdir.'/coursecatlib.php');
-            $displaylist = coursecat::make_categories_list('');
-        } else {
-            make_categories_list($displaylist, $parentlist, '');
-        }
+        // BASE-2624: Fixes for upgrade
+        $displaylist = core_course_category::make_categories_list('');
 
         $categoryselectlabel = html_writer::label(get_string('selectcoursecategory', 'turnitintooltwo'),
                                                     'create_course_category');
@@ -393,6 +396,7 @@ switch ($cmd) {
         $classids = '';
         foreach ($_REQUEST as $k => $v) {
             if (strstr($k, "class_id") !== false) {
+                // BASE-2624.
                 $classids .= (int)$v.', ';
             }
         }

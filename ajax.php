@@ -205,7 +205,9 @@ switch ($action) {
 
     case "get_users":
         $PAGE->set_context(context_system::instance());
-        if (is_siteadmin()) {
+        // BASE-1560: Add extend navigation/settings, TIIv2 settings extension
+        $ext = class_exists('\local_pluginextender\manager') && \local_pluginextender\extension\mod_turnitintooltwo_unlinkandfiles::user_has_access('unlinkusers');
+        if (is_siteadmin() || $ext) {
             echo json_encode(turnitintooltwo_getusers());
         } else {
             throw new moodle_exception('accessdenied', 'admin');
@@ -525,7 +527,9 @@ switch ($action) {
 
     case "get_files":
         $PAGE->set_context(context_system::instance());
-        if (is_siteadmin()) {
+        // BASE-1560: Add extend navigation/settings, TIIv2 settings extension
+        $ext = class_exists('\local_pluginextender\manager') && \local_pluginextender\extension\mod_turnitintooltwo_unlinkandfiles::user_has_access('files');
+        if (is_siteadmin() || $ext) {
             $modules = $DB->get_record('modules', array('name' => 'turnitintooltwo'));
             echo json_encode(turnitintooltwo_getfiles($modules->id));
         }
@@ -704,23 +708,7 @@ switch ($action) {
         }
         break;
 
-    case "get_assignments":
-        set_time_limit(0);
-        if (!confirm_sesskey()) {
-            throw new moodle_exception('invalidsesskey', 'error');
-        }
-
-        $PAGE->set_context(context_system::instance());
-
-        if (has_capability('moodle/course:update', context_system::instance())) {
-            $tiicourseid = required_param('tii_course_id', PARAM_INT);
-            $return = turnitintooltwo_get_assignments_from_tii($tiicourseid, "json");
-            $return["number_of_assignments"] = count($return["aaData"]);
-        } else {
-            $return["number_of_assignments"] = 0;
-        }
-        echo json_encode($return);
-        break;
+    // BASE-2624: Fixes for upgrade - case "get_assignments" unreachable (duplicated)
 
     case "create_assignment":
         set_time_limit(0);

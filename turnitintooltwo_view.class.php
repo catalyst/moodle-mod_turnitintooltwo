@@ -173,16 +173,22 @@ class turnitintooltwo_view {
     public function draw_tool_tab_menu($cm, $selected) {
         global $CFG;
 
+        // BASE-1441: mod_turnitintooltwo: ANU privacy and security enhancements
+        $context = context_module::instance($cm->id);
         $tabs = array();
         if (has_capability('mod/turnitintooltwo:grade', context_module::instance($cm->id))) {
             $tabs[] = new tabobject('submissions', $CFG->wwwroot.'/mod/turnitintooltwo/view.php?id='.$cm->id.'&do=submissions',
                     get_string('allsubmissions', 'turnitintooltwo'), get_string('allsubmissions', 'turnitintooltwo'), false);
-
-            $tabs[] = new tabobject('tutors', $CFG->wwwroot.'/mod/turnitintooltwo/view.php?id='.$cm->id.'&do=tutors',
-                    get_string('turnitintutors', 'turnitintooltwo'), get_string('turnitintutors', 'turnitintooltwo'), false);
-
-            $tabs[] = new tabobject('students', $CFG->wwwroot.'/mod/turnitintooltwo/view.php?id='.$cm->id.'&do=students',
-                    get_string('turnitinstudents', 'turnitintooltwo'), get_string('turnitinstudents', 'turnitintooltwo'), false);
+            // BASE-1491: Optionally control visibility of "Turnitin Students" & "Turnitin Tutors"
+            if (has_capability('mod/turnitintooltwo:managetutors', $context)) {
+                $tabs[] = new tabobject('tutors', $CFG->wwwroot.'/mod/turnitintooltwo/view.php?id='.$cm->id.'&do=tutors',
+                        get_string('turnitintutors', 'turnitintooltwo'), get_string('turnitintutors', 'turnitintooltwo'), false);
+            }
+            // BASE-1491: Optionally control visibility of "Turnitin Students" & "Turnitin Tutors"
+            if (has_capability('mod/turnitintooltwo:managestudents', $context)) {
+                $tabs[] = new tabobject('students', $CFG->wwwroot.'/mod/turnitintooltwo/view.php?id='.$cm->id.'&do=students',
+                        get_string('turnitinstudents', 'turnitintooltwo'), get_string('turnitinstudents', 'turnitintooltwo'), false);
+            }
         } else {
             $tabs[] = new tabobject('submissions', $CFG->wwwroot.'/mod/turnitintooltwo/view.php?id='.$cm->id.'&do=submissions',
                     get_string('mysubmissions', 'turnitintooltwo'), get_string('mysubmissions', 'turnitintooltwo'), false);
@@ -362,8 +368,10 @@ class turnitintooltwo_view {
                     $elements[] = array('hidden', 'submissionagreement', 1);
                     $customdata["checkbox_label_after"] = false;
                 } else {
-                    $elements[] = array('advcheckbox', 'submissionagreement', $config->agreement, '', array(0, 1),
-                                    'required', get_string('copyrightagreementerror', 'turnitintooltwo'), PARAM_INT);
+                    // BASE-2692: Always show copyrightagreement message on copyrightagreement checkbox
+                    $elements[] = array('advcheckbox', 'submissionagreement',
+                                        get_string('copyrightagreementerror', 'turnitintooltwo').$config->agreement,
+                                        '', array(0, 1), '', null, PARAM_INT);
                     $customdata["checkbox_label_after"] = true;
                 }
             }
@@ -837,8 +845,9 @@ class turnitintooltwo_view {
             // Output icon to download zip file of submissions in original format.
             $exportoriginalzip = $OUTPUT->box_start('row_export_orig', '');
             $exportoriginalzip .= $OUTPUT->box(
-                html_writer::tag('i', '', array('title' => get_string('exportoriginal', 'turnitintooltwo'),
-                                                'class' => 'fa fa-file-o fa-lg')),
+                html_writer::tag('img', '', array('title' => get_string('downloadorigzip','turnitintooltwo'),
+                                                'class' => 'fa fa-file-o fa-lg', 'src' => 'pix/file.png',
+                                                'alt' => get_string('downloadorigzip','turnitintooltwo'))),
                 'zip_open orig_zip_open', 'orig_zip_'.$partdetails[$partid]->tiiassignid
             );
             // Put in div placeholder for launch form.
@@ -848,16 +857,20 @@ class turnitintooltwo_view {
             // Output icon to download zip file of submissions in pdf format.
             $exportpdfzip = html_writer::link($CFG->wwwroot.'/mod/turnitintooltwo/view.php?id='.
                                     $cm->id.'&part='.$partid.'&do=export_pdfs&view_context=box_solid',
-                                    html_writer::tag('i', '', array('title' => get_string('exportpdf', 'turnitintooltwo'),
-                                        'class' => 'fa fa-file-pdf-o fa-lg middle-padding')),
+                                    html_writer::tag('img', '', array('title' => get_string('downloadpdfzip', 'turnitintooltwo'),
+                                        'class' => 'fa fa-file-pdf-o fa-lg middle-padding',
+                                        'src' => 'pix/file-pdf.png',
+                                        'alt' => get_string('downloadpdfzip', 'turnitintooltwo'))),
                                     array("class" => "downloadpdf_box",
                                             "id" => "download_".$partdetails[$partid]->tiiassignid));
 
             // Output icon to download excel spreadsheet of grades.
             $exportxlszip = $OUTPUT->box_start('row_export_xls', '');
             $exportxlszip .= $OUTPUT->box(
-                    html_writer::tag('i', '', array('title' => get_string('exportexcel', 'turnitintooltwo'),
-                        'class' => 'fa fa-file-excel-o fa-lg')),
+                    html_writer::tag('img', '', array('title' => get_string('downloadgradexls','turnitintooltwo'),
+                        'class' => 'fa fa-file-excel-o fa-lg',
+                        'src' => 'pix/file-xls.png',
+                        'alt' => get_string('downloadgradexls' , 'turnitintooltwo'))),
                     'zip_open xls_inbox_open', 'xls_inbox_'.$partdetails[$partid]->tiiassignid
                 );
 
@@ -1398,7 +1411,26 @@ class turnitintooltwo_view {
         }
 
         // Upload Submission.
-        if ((!isset($submission->submission_objectid) || $turnitintooltwoassignment->turnitintooltwo->reportgenspeed != 0) &&
+        // BASE-1483: Fix Turnitintool 2 privacy and security enhancements
+        // BASE-1500: Fix restrictuploads bug preventing students uploading submissions
+        $allowsubmit = false;
+        if (!empty($config->restrictuploads)) {
+            // Prevent submit if user:
+            // 1. Is logged in as and doesn't have turnitintooltwo:submitwhenloggedinas cap.
+            // 2. Is attempting to submit another users submission and doesn't have turnitintooltwo:submitonbehalfof cap.
+            $modcontext = context_module::instance($cm->id);
+            $submitonbehalf = (!\core\session\manager::is_loggedinas()
+                && ($submission->userid == $USER->id || has_capability('mod/turnitintooltwo:submitonbehalfof', $modcontext)));
+            $submitloggedin = (\core\session\manager::is_loggedinas()
+				&& has_capability('mod/turnitintooltwo:submitwhenloggedinas', $modcontext, $USER->realuser));
+            if ($submitonbehalf || $submitloggedin) {
+                $allowsubmit = true;
+            }
+        } else {
+               $allowsubmit = true;
+        }
+
+        if ($allowsubmit && (!isset($submission->submission_objectid) || $turnitintooltwoassignment->turnitintooltwo->reportgenspeed != 0) &&
             empty($submission->nmoodle) && time() > $parts[$partid]->dtstart) {
 
             if (empty($submission->submission_objectid)) {
@@ -1827,6 +1859,7 @@ class turnitintooltwo_view {
         }
         $cells["name"] = new html_table_cell(get_string("name"));
         $cells["start_date"] = new html_table_cell(get_string("dtstart", "turnitintooltwo"));
+        $cells["due_date"] = new html_table_cell(get_string("dtdue", "turnitintooltwo"));
         $cells["number_of_parts"] = new html_table_cell(get_string("numberofparts", "turnitintooltwo"));
         $cells["submissions"] = new html_table_cell(get_string("submissions", "turnitintooltwo"));
         $table->head = $cells;
@@ -1851,6 +1884,9 @@ class turnitintooltwo_view {
             $cells["start_date"] = new html_table_cell(userdate($turnitintooltwoassignment->get_start_date(),
                                                             get_string('strftimedatetimeshort', 'langconfig')));
             $cells["start_date"]->attributes["class"] = "centered_cell";
+            $cells["due_date"] = new html_table_cell(userdate($turnitintooltwoassignment->get_due_date(),
+                                                            get_string('strftimedatetimeshort', 'langconfig')));
+            $cells["due_date"]->attributes["class"] = "centered_cell";
 
             $cells["number_of_parts"] = new html_table_cell(count($turnitintooltwoassignment->get_parts()));
             $cells["number_of_parts"]->attributes["class"] = "centered_cell";
@@ -1889,7 +1925,8 @@ class turnitintooltwo_view {
         $enrollink = "";
         $enrollingcontainer = "";
 
-        if (has_capability('mod/turnitintooltwo:grade', context_module::instance($cm->id))) {
+        // BASE-1497: Optionally manage "Enrol All Students" functionality by capability
+        if (has_capability('mod/turnitintooltwo:managestudents', context_module::instance($cm->id))) {
 
             // Link to enrol all students on course.
             if ($role == "Learner") {
@@ -1991,7 +2028,8 @@ class turnitintooltwo_view {
     public function show_add_tii_tutors_form($cm, $tutors) {
         global $CFG, $OUTPUT;
 
-        $moodletutors = get_enrolled_users(context_module::instance($cm->id), 'mod/turnitintooltwo:grade', 0, 'u.id');
+        // BASE-2280: Adding tutors and enrolling student fixes
+        $moodletutors = get_enrolled_users(context_module::instance($cm->id), 'mod/turnitintooltwo:grade', 0);
 
         // Populate elements array which will generate the form elements
         // Each element is in following format: (type, name, label, helptext (minus _help), options (if select).
@@ -2000,13 +2038,9 @@ class turnitintooltwo_view {
 
         $options = array();
         foreach ($moodletutors as $k => $v) {
-            $availabletutor = new turnitintooltwo_user($v->id, "Instructor", false, "site", false);
-
-            if (array_key_exists($availabletutor->id, $tutors)) {
-                unset($moodletutors[$k]);
-            } else {
-                $options[$availabletutor->id] = $availabletutor->fullname.' ('.$availabletutor->email.')';
-            }
+            // BASE-1255: Do not instantiate a Turnitin user object when creating a list of Tutors.
+            $options[$v->id] = format_string($v->lastname).', '.
+                                                    format_string($v->firstname).' ('.$v->username.')';
         }
 
         if (count($options) == 0) {
