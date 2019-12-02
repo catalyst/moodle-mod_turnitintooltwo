@@ -1502,8 +1502,12 @@ function turnitintooltwo_show_browser_new_course_form() {
     $parentlist = array();
     require_once($CFG->dirroot."/course/lib.php");
 
-    // BASE-2624: Fixes for upgrade
-    $displaylist = core_course_category::make_categories_list('');
+    if (file_exists($CFG->libdir.'/coursecatlib.php')) {
+        require_once($CFG->libdir.'/coursecatlib.php');
+        $displaylist = coursecat::make_categories_list('');
+    } else {
+        make_categories_list($displaylist, $parentlist, '');
+    }
 
     $elements[] = array('select', 'coursecategory', get_string('category'), '', $displaylist);
     $elements[] = array('text', 'coursename', get_string('coursetitle', 'turnitintooltwo'), '');

@@ -106,8 +106,12 @@ switch ($cmd) {
         $displaylist = array();
         $parentlist = array();
         require_once($CFG->dirroot."/course/lib.php");
-        // BASE-2624: Fixes for upgrade
-        $displaylist = core_course_category::make_categories_list('');
+        if (file_exists($CFG->libdir.'/coursecatlib.php')) {
+            require_once($CFG->libdir.'/coursecatlib.php');
+            $displaylist = coursecat::make_categories_list('');
+        } else {
+            make_categories_list($displaylist, $parentlist, '');
+        }
 
         $categoryselectlabel = html_writer::label(get_string('selectcoursecategory', 'turnitintooltwo'), 'create_course_category');
         $categoryselect = html_writer::select($displaylist, 'create_course_category', '', array(),
