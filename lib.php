@@ -189,8 +189,7 @@ function turnitintooltwo_update_grades($turnitintooltwo, $userid = 0, $nullifnon
     $turnitintooltwoassignment = new turnitintooltwo_assignment($turnitintooltwo->id);
 
     try {
-        // BASE-2291: Activity due dates disappearing from course calendar
-        $turnitintooltwoassignment->edit_moodle_assignment();
+        $turnitintooltwoassignment->edit_moodle_assignment(false);
     } catch (Exception $e) {
         turnitintooltwo_comms::handle_exceptions($e, 'turnitintooltwoupdateerror', false);
     }
