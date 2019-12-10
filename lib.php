@@ -1878,7 +1878,8 @@ function turnitintooltwo_update_event($turnitintooltwo, $part, $courseparam = fa
         $updatedevent->timestart = $part->dtdue;
 
         // Create/Update event for assignment part.
-        if ($event = $DB->get_record_select("event", $dbselect, $dbparams)) {
+        if ($events = $DB->get_records_select("event", $dbselect, $dbparams)) {
+            $event = reset($events);
             $updatedevent->id = $event->id;
 
             if ($CFG->branch >= 33) {
