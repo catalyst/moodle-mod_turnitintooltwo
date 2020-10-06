@@ -43,12 +43,12 @@ class backup_turnitintooltwo_activity_structure_step extends backup_activity_str
 
         // Define each element separated.
         $turnitintooltwo = new backup_nested_element('turnitintooltwo', array('id'), array(
-            'type', 'name', 'grade', 'numparts', 'tiiaccount', 'defaultdtstart', 'defaultdtdue', 'defaultdtpost', 
+            'type', 'name', 'grade', 'numparts', 'tiiaccount', 'defaultdtstart', 'defaultdtdue', 'defaultdtpost',
             'anon', 'portfolio', 'allowlate', 'reportgenspeed', 'submitpapersto', 'spapercheck', 'internetcheck',
-            'journalcheck', 'institution_check', 'maxfilesize', 'intro', 'introformat', 'timecreated', 'timemodified', 
+            'journalcheck', 'institution_check', 'maxfilesize', 'intro', 'introformat', 'timecreated', 'timemodified',
             'studentreports', 'dateformat', 'usegrademark', 'gradedisplay', 'autoupdates', 'commentedittime', 'commentmaxsize',
-            'autosubmission', 'shownonsubmission', 'excludebiblio', 'excludequoted', 'excludevalue', 'excludetype', 'erater', 
-            'erater_handbook', 'erater_dictionary', 'erater_spelling', 'erater_grammar', 'erater_usage', 'erater_mechanics', 
+            'autosubmission', 'shownonsubmission', 'excludebiblio', 'excludequoted', 'excludevalue', 'excludetype', 'erater',
+            'erater_handbook', 'erater_dictionary', 'erater_spelling', 'erater_grammar', 'erater_usage', 'erater_mechanics',
             'erater_style', 'transmatch', 'allownonor'
         ));
 
@@ -88,8 +88,7 @@ class backup_turnitintooltwo_activity_structure_step extends backup_activity_str
         $values['tiiaccount'] = $config->accountid;
         $turnitintooltwo->fill_values($values);
 
-        //BASE-2454: Fix sorting of parts on activity duplication
-        $part->set_source_table('turnitintooltwo_parts', array('turnitintooltwoid' => backup::VAR_ACTIVITYID), 'id ASC');
+        $part->set_source_table('turnitintooltwo_parts', array('turnitintooltwoid' => backup::VAR_ACTIVITYID), 'id');
 
         $course->set_source_sql("
             SELECT  t.id, t.courseid, t.ownerid, tu.turnitin_uid AS ownertiiuid,

@@ -615,7 +615,7 @@ class turnitintooltwo_assignment {
         }
 
         // Get the suspended users.
-        $suspendedusers = get_suspended_userids($context);
+        $suspendedusers = get_suspended_userids($context, true);
 
         // Enrol remaining unenrolled users to the course.
         $members = array_keys($students);
@@ -2025,7 +2025,7 @@ class turnitintooltwo_assignment {
         }
 
         // Get the suspended users.
-        $suspendedusers = get_suspended_userids($context, true); // BASE-3249: use suspended user cache.
+        $suspendedusers = get_suspended_userids($context, true);
 
         // Populate the submissions array to show all users for all parts.
         $submissions = array();
