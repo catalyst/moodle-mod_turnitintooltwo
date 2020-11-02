@@ -301,6 +301,13 @@ function xmldb_turnitintooltwo_upgrade($oldversion) {
         $field = new xmldb_field('submitted', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, 0, 'anon');
         $dbman->change_field_precision($table, $field);
     }
+    if ($oldversion < 2020082601) {
+        $table = new xmldb_table('turnitintooltwo_submissions');
+        $index = new xmldb_index('turnsubm_par_ix', XMLDB_INDEX_NOTUNIQUE, ['submission_part', 'submission_objectid']);
+        if ($dbman->index_exists($table, $index)) {
+            $dbman->drop_index($table, $index);
+        }
+    }
 
     return true;
 }
