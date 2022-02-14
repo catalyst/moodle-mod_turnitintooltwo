@@ -49,7 +49,7 @@ class backup_turnitintooltwo_activity_structure_step extends backup_activity_str
             'studentreports', 'dateformat', 'usegrademark', 'gradedisplay', 'autoupdates', 'commentedittime', 'commentmaxsize',
             'autosubmission', 'shownonsubmission', 'excludebiblio', 'excludequoted', 'excludevalue', 'excludetype', 'erater',
             'erater_handbook', 'erater_dictionary', 'erater_spelling', 'erater_grammar', 'erater_usage', 'erater_mechanics',
-            'erater_style', 'transmatch', 'allownonor'
+            'erater_style', 'transmatch', 'rubric', 'allownonor'
         ));
 
         $parts = new backup_nested_element('parts');
@@ -67,14 +67,11 @@ class backup_turnitintooltwo_activity_structure_step extends backup_activity_str
         $submissions = new backup_nested_element('submissions');
 
         $submission = new backup_nested_element('submission', array('id'), array(
-            'userid', 'submission_part', 'submission_title',
-            'submission_type', 'submission_filename', 'submission_objectid',
-            'submission_score', 'submission_grade', 'submission_gmimaged',
-            'submission_status', 'submission_queued', 'submission_attempts',
-            'submission_modified', 'submission_parent', 'submission_nmuserid',
-            'submission_nmfirstname', 'submission_nmlastname', 'submission_unanon',
-            'submission_anonreason', 'submission_transmatch', 'submission_orcapable',
-            'submission_acceptnothing', 'tiiuserid'));
+            'userid', 'submission_part', 'submission_title', 'submission_type', 'submission_filename',
+            'submission_objectid', 'submission_score', 'submission_grade', 'submission_gmimaged', 'submission_attempts',
+            'submission_modified', 'submission_parent', 'submission_nmuserid', 'submission_nmfirstname',
+            'submission_nmlastname', 'submission_unanon', 'submission_anonreason', 'submission_transmatch',
+            'submission_orcapable', 'submission_acceptnothing', 'tiiuserid'));
 
         // Build the tree.
         $submissions->add_child($submission);

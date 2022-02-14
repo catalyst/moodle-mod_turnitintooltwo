@@ -281,6 +281,10 @@ switch ($action) {
             $updatefromtii = ($refreshrequested || $turnitintooltwoassignment->turnitintooltwo->autoupdates == 1) ? 1 : 0;
             $istutor = (has_capability('mod/turnitintooltwo:grade', context_module::instance($cm->id))) ? true : false;
 
+            if ($refreshrequested && $start == 0) {
+                $turnitintooltwoassignment->update_assignment_from_tii();
+            }
+
             if ($updatefromtii && $start == 0) {
                 $turnitintooltwoassignment->get_submission_ids_from_tii($parts[$partid]);
                 $total = count($_SESSION["TiiSubmissions"][$partid]);
@@ -300,7 +304,6 @@ switch ($action) {
                                                             'submission_part' => $partid));
             $return["end"] = $start + TURNITINTOOLTWO_SUBMISSION_GET_LIMIT;
             $return["total"] = $_SESSION["num_submissions"][$partid];
-            $return["nonsubmitters"] = $return["total"] - $totalsubmitters;
 
             // Remove any leftover submissions from session and update grade timestamp.
             if ($return["end"] >= $return["total"]) {
@@ -477,13 +480,13 @@ switch ($action) {
                 $turnitinclass = new turnitin_class($courseid);
             }
             $turnitinclass->read_class_from_tii();
-			$sharedrubrics = $turnitinclass->sharedrubrics;
+            $sharedrubrics = $turnitinclass->sharedrubrics;
 
-			foreach ($sharedrubrics as $group => $grouprubrics) {
-				foreach ($grouprubrics as $rubricid => $rubricname) {
-					$options[$group][$rubricid] = $rubricname;
-				}
-			}
+            foreach ($sharedrubrics as $group => $grouprubrics) {
+                foreach ($grouprubrics as $rubricid => $rubricname) {
+                    $options[$group][$rubricid] = $rubricname;
+                }
+            }
 
             // Get assignment details.
             if (!empty($assignmentid)) {
@@ -607,7 +610,7 @@ switch ($action) {
 
         $modules = $DB->get_record('modules', array('name' => 'turnitintooltwo'));
 
-        $return = turnitintooltwo_get_courses_from_tii($tiiintegrationids, $title, $courseintegration, $enddate, $source);
+        $return = turnitintooltwo_get_courses_from_tii(turnitintooltwo_get_integration_ids(), $title, $courseintegration, $enddate, $source);
         echo json_encode($return);
         break;
 
@@ -911,7 +914,7 @@ switch ($action) {
 
         $turnitintoolid = required_param('turnitintoolid', PARAM_INT);
 
-        // Check if v1 id is linked to a v2 id in the session
+        // Check if v1 id is linked to a v2 id in the session.
         $turnitintooltwoid = 0;
         if ( isset( $_SESSION["migrationtool"][$turnitintoolid] ) && is_numeric( $_SESSION["migrationtool"][$turnitintoolid] ) ) {
             $turnitintooltwoid = intval( $_SESSION["migrationtool"][$turnitintoolid] );
