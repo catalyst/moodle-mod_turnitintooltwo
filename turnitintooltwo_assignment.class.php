@@ -337,10 +337,9 @@ class turnitintooltwo_assignment {
      * @global type $DB
      * @param object $course The course object
      * @param int $ownerid The owner of the course
-     * @param string $coursetype whether the course is TT (Turnitintool) or PP (Plagiarism Plugin)
      * @return object the turnitin course if created
      */
-    public function create_tii_course($course, $ownerid, $coursetype = "TT", $workflowcontext = "site") {
+    public function create_tii_course($course, $ownerid) {
         global $DB;
 
         $turnitincomms = new turnitintooltwo_comms();
@@ -359,8 +358,8 @@ class turnitintooltwo_assignment {
             $turnitincourse->courseid = $course->id;
             $turnitincourse->ownerid = $ownerid;
             $turnitincourse->turnitin_cid = $newclass->getClassId();
-            $turnitincourse->turnitin_ctl = $course->fullname . " (Moodle ".$coursetype.")";
-            $turnitincourse->course_type = $coursetype;
+            $turnitincourse->turnitin_ctl = $course->fullname . " (Moodle TT)";
+            $turnitincourse->course_type = "TT";
 
             if (empty($course->tii_rel_id)) {
                 $method = "insert_record";
@@ -409,6 +408,12 @@ class turnitintooltwo_assignment {
         $class->setClassId($course->turnitin_cid);
         $title = $this->truncate_title( $course->fullname, TURNITIN_COURSE_TITLE_LIMIT, $coursetype );
         $class->setTitle( $title );
+        // If a course end date is specified in Moodle then we set this in Turnitin with an additional month to
+        // account for the Turnitin viewer becoming read-only once the class end date passes.
+        if (!empty($course->enddate)) {
+            $enddate = strtotime('+1 month', $course->enddate);
+            $class->setEndDate(gmdate("Y-m-d\TH:i:s\Z", $enddate));
+        }
 
         try {
             $turnitincall->updateClass($class);
@@ -432,8 +437,7 @@ class turnitintooltwo_assignment {
                                                 " (".$turnitincourse->id.")", "REQUEST");
             }
         } catch (Exception $e) {
-            $toscreen = ($coursetype == "PP") ? false : true;
-            $turnitincomms->handle_exceptions($e, 'classupdateerror', $toscreen);
+            $turnitincomms->handle_exceptions($e, 'classupdateerror');
         }
     }
 
@@ -444,7 +448,7 @@ class turnitintooltwo_assignment {
      * @param int $limit The course title on Turnitin
      * @param string $coursetype whether the course is TT (Turnitintooltwo) or PP (Plagiarism Plugin)
      */
-    public static function truncate_title($title, $limit, $coursetype) {
+    public static function truncate_title($title, $limit, $coursetype = 'TT') {
         $suffix = " (Moodle " . $coursetype . ")";
         $limit = $limit - strlen($suffix);
         $truncatedtitle = "";
@@ -468,8 +472,6 @@ class turnitintooltwo_assignment {
      * @param date $courseenddate The new course end date to be set on Turnitin
      */
     public static function edit_tii_course_end_date($tiicourseid, $tiicoursetitle, $courseenddate) {
-        global $DB;
-
         $turnitincomms = new turnitintooltwo_comms();
         $turnitincall = $turnitincomms->initialise_api();
 
@@ -980,7 +982,7 @@ class turnitintooltwo_assignment {
 
         // Get the Moodle Turnitintool (Assignment) Object.
         if (!$turnitintooltwo = $DB->get_record("turnitintooltwo", array("id" => $id))) {
-            return false;
+            return true;
         }
 
         // Get Current Moodle Turnitin Tool parts and delete them.
@@ -993,11 +995,6 @@ class turnitintooltwo_assignment {
 
         // Delete events for this assignment / part.
         $dbselect = " modulename = ? AND instance = ? ";
-        // Moodle pre 2.5 on SQL Server errors here as queries weren't allowed on ntext fields, the relevant fields
-        // are nvarchar from 2.6 onwards so we have to cast the relevant fields in pre 2.5 SQL Server setups.
-        if ($CFG->branch <= 25 && $CFG->dbtype == "sqlsrv") {
-            $dbselect = " CAST(modulename AS nvarchar(max)) = ? AND instance = ? ";
-        }
 
         $DB->delete_records_select('event', $dbselect, array('turnitintooltwo', $id));
         if (!$DB->delete_records("turnitintooltwo", array("id" => $id))) {
@@ -1012,14 +1009,16 @@ class turnitintooltwo_assignment {
                 // Delete the Turnitin Classes data if the Moodle courses no longer exists.
                 if (!$DB->count_records("course", array("id" => $oldcourse->courseid)) > 0) {
                     $DB->delete_records("turnitintooltwo_courses", array("courseid" => $oldcourse->courseid));
+                    turnitintooltwo_activitylog("Old Moodle Course deleted - id (".$oldcourse->courseid." - ".
+                        $oldcourse->turnitin_cid.")", "REQUEST");
                 }
                 // Delete the Turnitin Class data if no more turnitin assignments exist in it.
                 if (!$DB->count_records("turnitintooltwo", array("course" => $oldcourse->courseid)) > 0) {
                     $DB->delete_records("turnitintooltwo_courses", array("courseid" => $oldcourse->courseid,
                                                         "course_type" => "TT"));
+                    turnitintooltwo_activitylog("Old Moodle Course deleted - id (".$oldcourse->courseid." - ".
+                        $oldcourse->turnitin_cid.")", "REQUEST");
                 }
-                turnitintooltwo_activitylog("Old Moodle Course deleted - id (".$oldcourse->courseid." - ".
-                                                        $oldcourse->turnitin_cid.")", "REQUEST");
             }
         }
 
@@ -1039,7 +1038,7 @@ class turnitintooltwo_assignment {
      * @return boolean
      */
     public function delete_moodle_assignment_part($toolid, $partid) {
-        global $DB, $CFG;;
+        global $DB;
 
         // Delete submissions.
         $DB->delete_records('turnitintooltwo_submissions', array('turnitintooltwoid' => $toolid, 'submission_part' => $partid));
@@ -1056,11 +1055,6 @@ class turnitintooltwo_assignment {
         // Delete event.
         $turnitintooltwonow = $DB->get_record("turnitintooltwo", array("id" => $toolid));
         $dbselect = " modulename = ? AND instance = ? AND name LIKE ? ";
-        // Moodle pre 2.5 on SQL Server errors here as queries weren't allowed on ntext fields, the relevant fields
-        // are nvarchar from 2.6 onwards so we have to cast the relevant fields in pre 2.5 SQL Server setups.
-        if ($CFG->branch <= 25 && $CFG->dbtype == "sqlsrv") {
-            $dbselect = " CAST(modulename AS nvarchar(max)) = ? AND instance = ? AND CAST(name AS nvarchar(max)) = ? ";
-        }
         $DB->delete_records_select('event', $dbselect,
                         array('turnitintooltwo', $toolid, $turnitintooltwonow->name.' - '.$part->partname));
 
@@ -1191,7 +1185,7 @@ class turnitintooltwo_assignment {
      * @return array containing a status and an error message if applicable
      */
     public function edit_part_field($partid, $fieldname, $fieldvalue) {
-        global $DB, $USER, $CFG;
+        global $DB;
         $return = array();
         $return["success"] = true;
         $partdetails = $this->get_part_details($partid);
@@ -1334,7 +1328,7 @@ class turnitintooltwo_assignment {
      * @return boolean
      */
     public function edit_moodle_assignment($createevent = true, $restore = false) {
-        global $USER, $DB, $CFG;
+        global $DB;
 
         $config = turnitintooltwo_admin_config();
 
@@ -1504,12 +1498,6 @@ class turnitintooltwo_assignment {
                 // Delete existing events for this assignment part.
                 $eventname = $turnitintooltwonow->name." - ".$partnow->partname;
                 $dbselect = " modulename = ? AND instance = ? AND name LIKE ? ";
-                // Moodle pre 2.5 on SQL Server errors here as queries weren't allowed on ntext fields, the relevant fields
-                // are nvarchar from 2.6 onwards so we have to cast the relevant fields in pre 2.5 SQL Server setups.
-                if ($CFG->branch <= 25 && $CFG->dbtype == "sqlsrv") {
-                    $dbselect = " CAST(modulename AS nvarchar(max)) = ? AND instance = ? AND CAST(name AS nvarchar(max)) = ? ";
-                }
-
                 $DB->delete_records_select('event', $dbselect, array('turnitintooltwo', $this->id, $eventname));
             } else {
                 if (!$dbpart = $DB->insert_record('turnitintooltwo_parts', $part)) {
@@ -1924,7 +1912,7 @@ class turnitintooltwo_assignment {
      * @return array
      */
     public function get_overall_grade($submissions, $cm = '') {
-        global $USER, $DB;
+        global $DB;
 
         $overallgrade = null;
         $parts = $this->get_parts();
@@ -1990,7 +1978,7 @@ class turnitintooltwo_assignment {
      * @return array of submissions by part
      */
     public function get_submissions($cm, $partid = 0, $userid = 0, $submissionsonly = 0) {
-        global $DB, $USER;
+        global $DB, $USER, $CFG;
 
         // If no part id is specified then get them all.
         $sql = " turnitintooltwoid = ? ";
@@ -2008,13 +1996,18 @@ class turnitintooltwo_assignment {
         $istutor = has_capability('mod/turnitintooltwo:grade', $context);
 
         // If logged in as instructor then get for all users.
-        $allnamefields = get_all_user_name_fields();
+        if ($CFG->branch == 311) {
+            $allnamefields = implode(', ', \core_user\fields::get_name_fields());
+        } else {
+            $allnamefields = implode(', ', get_all_user_name_fields());
+        }
+
         if ($istutor && $userid == 0) {
             $users = get_enrolled_users($context, 'mod/turnitintooltwo:submit', groups_get_activity_group($cm),
-                                        'u.id, ' . implode(', ', $allnamefields));
+                                        'u.id, ' . $allnamefields);
             $users = (!$users) ? array() : $users;
         } else if ($istutor) {
-            $user = $DB->get_record('user', array('id' => $userid), 'id, ' . implode(', ', $allnamefields));
+            $user = $DB->get_record('user', array('id' => $userid), 'id, ' . $allnamefields);
             $users = array($userid => $user);
             $sql .= " AND userid = ? ";
             $sqlparams[] = $userid;

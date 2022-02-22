@@ -25,7 +25,7 @@ if (empty($plugin)) {
     $plugin = new StdClass();
 }
 
-$plugin->version   = 2020082601;
+$plugin->version   = 2022020302;
 $plugin->release   = "3.1+";
 $plugin->requires  = 2016052300;
 $plugin->component = 'mod_turnitintooltwo';

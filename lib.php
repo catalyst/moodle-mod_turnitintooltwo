@@ -53,9 +53,27 @@ define('SUBMIT_TO_STANDARD_REPOSITORY', 1);
 define('SUBMIT_TO_INSTITUTIONAL_REPOSITORY', 2);
 
 // For use in course migration.
-$tiiintegrationids = array(0 => get_string('nointegration', 'turnitintooltwo'), 1 => 'Blackboard Basic',
-                                    2 => 'WebCT', 5 => 'Angel', 6 => 'Moodle Basic', 7 => 'eCollege', 8 => 'Desire2Learn',
-                                    9 => 'Sakai', 12 => 'Moodle Direct', 13 => 'Blackboard Direct', 26 => 'LTI');
+/**
+ * Returns the integration ids and labels.
+ * @return array Integration ids and labels.
+ */
+function turnitintooltwo_get_integration_ids() {
+    static $tiiintegrationids = [];
+    if (empty($tiiintegrationids)) {
+        $tiiintegrationids[0] = get_string('nointegration', 'turnitintooltwo');
+        $tiiintegrationids[1] = 'Blackboard Basic';
+        $tiiintegrationids[2] = 'WebCT';
+        $tiiintegrationids[5] = 'Angel';
+        $tiiintegrationids[6] = 'Moodle Basic';
+        $tiiintegrationids[7] = 'eCollege';
+        $tiiintegrationids[8] = 'Desire2Learn';
+        $tiiintegrationids[9] = 'Sakai';
+        $tiiintegrationids[12] = 'Moodle Direct';
+        $tiiintegrationids[13] = 'Blackboard Direct';
+        $tiiintegrationids[26] = 'LTI';
+    }
+    return $tiiintegrationids;
+}
 
 /**
  * Function for either adding to log or triggering an event
@@ -68,6 +86,7 @@ $tiiintegrationids = array(0 => get_string('nointegration', 'turnitintooltwo'), 
  */
 function turnitintooltwo_add_to_log($courseid, $eventname, $link, $desc, $cmid, $userid = 0) {
     global $USER;
+
     $eventname = str_replace(' ', '_', $eventname);
     $eventpath = '\mod_turnitintooltwo\event\\'.$eventname;
 
@@ -180,7 +199,7 @@ function turnitintooltwo_activitylog($string, $activity) {
  * @param  boolean $nullifnone
  */
 function turnitintooltwo_update_grades($turnitintooltwo, $userid = 0, $nullifnone = true) {
-    global $DB, $USER, $CFG;
+    global $DB;
 
     if ($userid != 0) {
         return;
@@ -348,7 +367,8 @@ function turnitintooltwo_duplicate_recycle($courseid, $action, $renewdates = nul
         }
 
         /* Set legacy to 0 for all TII2s so that we can have all recreated assignments on the same TII class.
-           Legacy is set to 1 only for migrated assignments that were migrated on a course where there were pre-existing V2 assignments.*/
+           Legacy is set to 1 only for migrated assignments that were migrated on
+           a course where there were pre-existing V2 assignments.*/
         if ($action == "NEWCLASS") {
             $update = new stdClass();
             $update->id = $turnitintooltwo->id;
@@ -474,13 +494,13 @@ function turnitintooltwo_duplicate_recycle($courseid, $action, $renewdates = nul
             $assignment->setEraterHandbook($eraterhandbook);
 
             // Generate the assignment dates depending on whether we are renewing them or not.
-            $date_start = turnitintooltwo_generate_part_dates($renewdates, "start", $turnitintooltwoassignment->turnitintooltwo, $i);
-            $date_due   = turnitintooltwo_generate_part_dates($renewdates, "due", $turnitintooltwoassignment->turnitintooltwo, $i);
-            $date_post  = turnitintooltwo_generate_part_dates($renewdates, "post", $turnitintooltwoassignment->turnitintooltwo, $i);
+            $datestart = turnitintooltwo_generate_part_dates($renewdates, "start", $turnitintooltwoassignment->turnitintooltwo, $i);
+            $datedue   = turnitintooltwo_generate_part_dates($renewdates, "due", $turnitintooltwoassignment->turnitintooltwo, $i);
+            $datepost  = turnitintooltwo_generate_part_dates($renewdates, "post", $turnitintooltwoassignment->turnitintooltwo, $i);
 
-            $assignment->setStartDate($date_start);
-            $assignment->setDueDate($date_due);
-            $assignment->setFeedbackReleaseDate($date_post);
+            $assignment->setStartDate($datestart);
+            $assignment->setDueDate($datedue);
+            $assignment->setFeedbackReleaseDate($datepost);
 
             $attribute = "partname".$i;
             $tiititle = $turnitintooltwoassignment->turnitintooltwo->name." ".$turnitintooltwoassignment->turnitintooltwo->$attribute;
@@ -530,14 +550,14 @@ function turnitintooltwo_duplicate_recycle($courseid, $action, $renewdates = nul
  * Function called by turnitintooltwo_duplicate_recycle to generate part dates during the course reset process.
  *
  * @param int $renewdates Determines whether to use new dates or existing dates.
- * @param string $date_type "start", "due" or "post" - Determines the kind of date we need to return.
+ * @param string $datetype "start", "due" or "post" - Determines the kind of date we need to return.
  * @param object $part The assignment in which we need dates for.
  * @param int The counter used during the part creation.
  * @return int A timestamp for the date we requested.
  */
-function turnitintooltwo_generate_part_dates($renewdates, $date_type, $part, $i) {
+function turnitintooltwo_generate_part_dates($renewdates, $datetype, $part, $i) {
     if ($renewdates) {
-        switch ($date_type) {
+        switch ($datetype) {
             case 'start':
                 return gmdate("Y-m-d\TH:i:s\Z", time());
             case 'due':
@@ -547,7 +567,7 @@ function turnitintooltwo_generate_part_dates($renewdates, $date_type, $part, $i)
                 return NULL;
         }
     } else {
-        $attribute = "dt".$date_type.$i;
+        $attribute = "dt".$datetype.$i;
         return gmdate("Y-m-d\TH:i:s\Z", $part->$attribute);
     }
 }
@@ -576,7 +596,7 @@ function turnitintooltwo_reset_part_update($part, $i) {
  * @return array The Result of the turnitintooltwo_duplicate_recycle call
  */
 function turnitintooltwo_reset_userdata($data) {
-    $renew_dates = isset($data->renew_assignment_dates) ? 1 : null;
+    $renewdates = isset($data->renew_assignment_dates) ? 1 : null;
 
     $action = 'UNTOUCHED';
     switch ($data->reset_turnitintooltwo) {
@@ -588,7 +608,7 @@ function turnitintooltwo_reset_userdata($data) {
             break;
     }
 
-    $status = turnitintooltwo_duplicate_recycle($data->courseid, $action, $renew_dates);
+    $status = turnitintooltwo_duplicate_recycle($data->courseid, $action, $renewdates);
 
     return $status;
 }
@@ -690,7 +710,6 @@ function turnitintooltwo_cron() {
 
     // Perform gradebook migrations for submissions that were not actioned during the migration tool.
     turnitintooltwo_cron_migrate_gradebook();
-
 }
 
 /**
@@ -1131,7 +1150,7 @@ function turnitintooltwo_get_courses_from_tii($tiiintegrationids, $coursetitle, 
                                                         '&view_context=box&sesskey='.sesskey(),
                                                         $readclass->getTitle(), array("class" => "course_recreate",
                                                                                 "id" => "course_".$readclass->getClassId()));
-                        $datecell = html_writer::link('.edit_course_end_date_form',
+                        $datecell = html_writer::link('.mod_turnitintooltwo_edit_course_end_date_form',
                                         html_writer::tag('span',
                                                 userdate(strtotime($readclass->getEndDate()),
                                                             get_string('strftimedate', 'langconfig')),
@@ -1202,7 +1221,7 @@ function turnitintooltwo_sort_array(&$data, $sortcol, $sortdir) {
 }
 
 /**
- * Get files for displaying in settings. Called from ajax.php via turnitintooltwo-2018102601.min.js.
+ * Get files for displaying in settings. Called from ajax.php via turnitintooltwo-2020111101.min.js.
  *
  * @param  $moduleid the id of the module to return files for
  * @global type $DB
@@ -1325,7 +1344,7 @@ function turnitintooltwo_pluginfile($course,
 }
 
 /**
- * Get users for unlinking/relinking. Called from ajax.php via turnitintooltwo-2018102601.min.js.
+ * Get users for unlinking/relinking. Called from ajax.php via turnitintooltwo-2020111101.min.js.
  *
  * @global type $DB
  * @return array return array of users to display
@@ -1489,12 +1508,9 @@ function turnitintooltwo_print_overview($courses, &$htmlarray) {
 /**
  * Show form to create a new moodle course from the existing Turnitin Course
  *
- * @global type $OUTPUT
  * @return html the form object to create a new course
  */
 function turnitintooltwo_show_browser_new_course_form() {
-    global $CFG;
-
     $elements = array();
     $elements[] = array('header', 'create_course_fieldset', get_string('createcourse', 'turnitintooltwo'));
     $displaylist = array();
@@ -1640,7 +1656,7 @@ function turnitintooltwo_show_edit_course_end_date_form() {
     $customdata["disable_form_change_checker"] = true;
     $optionsform = new turnitintooltwo_form('', $customdata);
 
-    return html_writer::tag('div', $output.$optionsform->display(), array('class' => 'edit_course_end_date_form'));
+    return html_writer::tag('div', $output.$optionsform->display(), array('class' => 'mod_turnitintooltwo_edit_course_end_date_form'));
 }
 
 /**
