@@ -283,7 +283,7 @@ class Soap extends SoapClient {
         parent::__construct( $wsdl, $options );
     }
 
-    public function __doRequest($request, $location, $action, $version, $one_way = null) {
+    public function __doRequest(string $request, string $location, string $action, int $version, bool $oneWay = false): ?string {
 
         $http_headers = array(
             'Content-type: text/xml;charset="utf-8"',
@@ -359,4 +359,3 @@ class Soap extends SoapClient {
 
 }
 
-//?>
