@@ -119,10 +119,10 @@ class mod_turnitintooltwo_mod_form extends moodleform_mod {
 
         $modulestring .= ') -->';
 
-        $this->show_form($instructorrubrics, $sharedrubrics, $course->turnitin_cid, $modulestring);
+        $this->show_form($instructorrubrics, $sharedrubrics, $modulestring, $course->turnitin_cid);
     }
 
-    public function show_form($instructorrubrics, $sharedrubrics, $tiicourseid, $modulestring = '') {
+    public function show_form($instructorrubrics, $sharedrubrics, $modulestring = '', $tiicourseid) {
         global $CFG, $OUTPUT, $COURSE, $PAGE, $DB;
         $PAGE->requires->string_for_js('changerubricwarning', 'turnitintooltwo');
         $PAGE->requires->string_for_js('closebutton', 'turnitintooltwo');
