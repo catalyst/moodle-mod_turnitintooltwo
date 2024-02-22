@@ -144,10 +144,17 @@ class mod_turnitintooltwo_mod_form extends moodleform_mod {
                                                         "href" => $CFG->wwwroot."/mod/turnitintooltwo/styles.css"));
         $script .= html_writer::tag('link', '', array("rel" => "stylesheet", "type" => "text/css",
                                                         "href" => $CFG->wwwroot."/mod/turnitintooltwo/css/colorbox.css"));
-        $script .= html_writer::tag('link', '', array("rel" => "stylesheet", "type" => "text/css",
-                                                        "href" => $CFG->wwwroot."/mod/turnitintooltwo/css/tii-icon-webfont.css"));
-        $script .= html_writer::tag('link', '', array("rel" => "stylesheet", "type" => "text/css",
-                                                        "href" => $CFG->wwwroot."/mod/turnitintooltwo/css/font-awesome.min.css"));
+
+        // The following iconsets are already provided by the catawesome theme.
+        // If the following scripts load with this theme enabled, icons do not render.
+        if (!get_config('core', 'theme') == 'catawesome') {
+            $script .= html_writer::tag('link', '',
+                array("rel" => "stylesheet", "type" => "text/css",
+                "href" => $CFG->wwwroot."/mod/turnitintooltwo/css/tii-icon-webfont.css"));
+            $script .= html_writer::tag('link', '',
+                array("rel" => "stylesheet", "type" => "text/css",
+                "href" => $CFG->wwwroot."/mod/turnitintooltwo/css/font-awesome.min.css"));
+        }
 
         $mform->addElement('html', $script);
 
