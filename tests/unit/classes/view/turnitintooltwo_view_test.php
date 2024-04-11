@@ -43,6 +43,7 @@ class mod_turnitintooltwo_view_testcase extends test_lib {
     /**
      * Test that the page layout is set to standard so that the header displays.
      */
+
     public function test_output_header() {
         global $PAGE;
         $turnitintooltwoview = new turnitintooltwo_view();
