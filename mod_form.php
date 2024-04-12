@@ -158,7 +158,7 @@ class mod_turnitintooltwo_mod_form extends moodleform_mod {
 
         // The following iconsets are already provided by the catawesome theme.
         // If the following scripts load with this theme enabled, icons do not render.
-        if (!get_config('core', 'theme') == 'catawesome') {
+        if (!(get_config('core', 'theme') == 'catawesome')) {
             $script .= html_writer::tag('link', '',
                 array("rel" => "stylesheet", "type" => "text/css",
                 "href" => $CFG->wwwroot."/mod/turnitintooltwo/css/tii-icon-webfont.css"));

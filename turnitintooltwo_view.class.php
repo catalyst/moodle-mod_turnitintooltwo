@@ -69,7 +69,7 @@ class turnitintooltwo_view {
         $PAGE->requires->css($cssurl);
 
         // Include this CSS if not using theme_catawesome is not used.
-        if (!get_config('core', 'theme') == 'catawesome') {
+        if (!(get_config('core', 'theme') == 'catawesome')) {
             $cssurl = new moodle_url('/mod/turnitintooltwo/css/font-awesome.min.css');
             $PAGE->requires->css($cssurl);
             $cssurl = new moodle_url('/mod/turnitintooltwo/css/tii-icon-webfont.css');
