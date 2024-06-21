@@ -284,7 +284,6 @@ class Soap extends SoapClient {
     }
 
     public function __doRequest(string $request, string $location, string $action, int $version, bool $oneWay = false): ?string {
-
         $http_headers = array(
             'Content-type: text/xml;charset="utf-8"',
             'Accept: text/xml',
