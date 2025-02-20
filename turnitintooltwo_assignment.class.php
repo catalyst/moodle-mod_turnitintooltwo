@@ -379,7 +379,7 @@ class turnitintooltwo_assignment {
             $coursetype = "TT";
             $workflowcontext = "site";
             turnitintooltwo_activitylog("Class created - ".$turnitincourse->courseid." | ".$turnitincourse->turnitin_cid.
-                                        " | ".$course->fullname . " (Moodle ".$coursetype.")" , "REQUEST");
+                                        " | ".$course->fullname . " (Moodle TT)" , "REQUEST");
 
             return $turnitincourse;
         } catch (Exception $e) {
@@ -629,10 +629,10 @@ class turnitintooltwo_assignment {
         $members = array_keys($students);
         foreach ($members as $member) {
             // Don't include user if they are suspended.
+            $user = new turnitintooltwo_user($member, "Learner");
             if (isset($suspendedusers[$user->id])) {
                 continue;
             }
-            $user = new turnitintooltwo_user($member, "Learner");
             $user->join_user_to_class($course->turnitin_cid);
         }
         return true;
@@ -758,7 +758,7 @@ class turnitintooltwo_assignment {
             $assignment->setDueDate(gmdate("Y-m-d\TH:i:s\Z", $this->turnitintooltwo->$attribute));
             $attribute = "dtpost".$i;
             $assignment->setFeedbackReleaseDate(gmdate("Y-m-d\TH:i:s\Z", $this->turnitintooltwo->$attribute));
-
+            $assignment->setInstructions(strip_tags($this->turnitintooltwo->intro));
             $assignment->setAuthorOriginalityAccess($this->turnitintooltwo->studentreports);
             $assignment->setRubricId((!empty($this->turnitintooltwo->rubric)) ? $this->turnitintooltwo->rubric : '');
             $assignment->setSubmitPapersTo($this->turnitintooltwo->submitpapersto);
@@ -1859,20 +1859,21 @@ class turnitintooltwo_assignment {
         }
 
         foreach ($submissions as $submission) {
-            if (!is_nan($submission->submission_grade) AND (!empty($submission->submission_gmimaged) || $istutor)
-                    AND !is_null($submission->submission_grade) AND $weightarray[$submission->submission_part] != 0) {
+            if (isset($submission->submission_grade) && !is_nan($submission->submission_grade)
+                && (!empty($submission->submission_gmimaged) || $istutor)
+                && !is_null($submission->submission_grade) && $weightarray[$submission->submission_part] != 0) {
                 $weightedgrade = $submission->submission_grade / $weightarray[$submission->submission_part];
                 $overallgrade += $weightedgrade * ($weightarray[$submission->submission_part] / $overallweight) * $maxgrade;
             }
         }
 
-        if (!is_null($overallgrade) AND $this->turnitintooltwo->grade < 0) {
+        if (!is_null($overallgrade) && $this->turnitintooltwo->grade < 0) {
             return ($overallgrade == 0) ? 1 : ceil($overallgrade);
         } else {
             if (is_null($overallgrade)) {
                 return "--";
             }
-            return (!is_nan($overallgrade) AND !is_null($overallgrade)) ? number_format($overallgrade, 2) : '--';
+            return (!is_nan($overallgrade) && !is_null($overallgrade)) ? number_format($overallgrade, 2) : '--';
         }
     }
 
