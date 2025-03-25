@@ -251,7 +251,7 @@ function turnitintooltwo_grade_item_update($turnitintooltwo, $grades = null) {
 
     // Get the latest part, for the post date and set the default hidden value on grade item.
     $lastpart = $DB->get_record('turnitintooltwo_parts', array('turnitintooltwoid' => $turnitintooltwo->id), 'max(dtpost)');
-    $lastpart = current($lastpart);
+    $lastpart = current((array)$lastpart);
     $params['hidden'] = $lastpart;
 
     // There should always be a $cm unless this is called on module creation.
@@ -823,7 +823,7 @@ function turnitintooltwo_cron_update_gradbook($assignment, $task) {
 }
 
 /**
- * Abstracted version of print_error()
+ * Abstracted version of throw new moodle_exception() - formerly print_error()
  *
  * @param string $input The error string if module = null otherwise the language string called by get_string()
  * @param string $module The module string
@@ -847,7 +847,7 @@ function turnitintooltwo_print_error($input, $module = 'turnitintooltwo',
         $message .= ' ('.basename($file).' | '.$line.')';
     }
 
-    print_error($input, 'turnitintooltwo', $link, $message);
+    throw new moodle_exception($input, 'turnitintooltwo', $link, $message);
     exit();
 }
 
@@ -1167,7 +1167,7 @@ function turnitintooltwo_sort_array(&$data, $sortcol, $sortdir) {
 }
 
 /**
- * Get files for displaying in settings. Called from ajax.php via turnitintooltwo-2024032901.min.js.
+ * Get files for displaying in settings. Called from ajax.php via turnitintooltwo-2024100901.min.js.
  *
  * @param  $moduleid the id of the module to return files for
  * @global type $DB
@@ -1290,7 +1290,7 @@ function turnitintooltwo_pluginfile($course,
 }
 
 /**
- * Get users for unlinking/relinking. Called from ajax.php via turnitintooltwo-2024032901.min.js.
+ * Get users for unlinking/relinking. Called from ajax.php via turnitintooltwo-2024100901.min.js.
  *
  * @global type $DB
  * @return array return array of users to display
@@ -1523,7 +1523,7 @@ function turnitintooltwo_init_browser_assignment_table($tiicourseid) {
                         );
 
     if (!empty($turnitincourse)) {
-        $course = current($turnitincourse);
+        $course = current((array)$turnitincourse);
         $coursedetails = turnitintooltwo_assignment::get_course_data($course->courseid, $course->course_type);
         $courseid = $course->courseid;
         $coursetitle = $coursedetails->fullname;
