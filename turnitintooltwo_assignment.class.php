@@ -418,7 +418,9 @@ class turnitintooltwo_assignment {
                 $course->enddate = strtotime('today');
             }
             $enddate = strtotime('+1 month', $course->enddate);
-            $class->setEndDate(gmdate("Y-m-d\TH:i:s\Z", $enddate));
+            if ($enddate > time()) {
+                $class->setEndDate(gmdate("Y-m-d\TH:i:s\Z", $enddate));
+            }
         }
 
         try {
@@ -1176,6 +1178,11 @@ class turnitintooltwo_assignment {
         $return["success"] = true;
         $partdetails = $this->get_part_details($partid);
         $return["partid"] = $partid;
+
+        // Delete existing events for this assignment part if title or due date changed.
+        if ($fieldname == "partname" || $fieldname == "dtdue") {
+            turnitintooltwo_delete_event($this->turnitintooltwo, $partdetails);
+        }
 
         // Update Turnitin Assignment.
         $assignment = new TiiAssignment();
